@@ -1,8 +1,8 @@
 #ifndef _SENTRY_CONTROL_KEY_H
 #define _SENTRY_CONTROL_KEY_H
 
-#include <ros/ros.h>
-#include <geometry_msgs/Twist.h>
+#include "rclcpp/rclcpp.hpp"
+#include <geometry_msgs/msg/twist.hpp>
 #include <signal.h>
 #include <stdio.h>
 #ifndef _WIN32
@@ -152,20 +152,21 @@ private:
   #endif
 };
 
-class TeleopTurtle
+class TeleopTurtle : public rclcpp::Node
 {
 public:
-  TeleopTurtle();
+  TeleopTurtle()
+    : Node("teleop_turtle")
+  {
+    // Initialize publisher
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+  }
+
   void keyLoop();
 
 private:
-
-  
-  ros::NodeHandle nh_;
-  ros::NodeHandle nhPrivate = ros::NodeHandle("~");
-  double linear_x,linear_y, angular_, l_scale_, a_scale_;
-  ros::Publisher twist_pub_;
-  
+  double linear_x_, linear_y_, angular_, l_scale_, a_scale_;
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_pub_;
 };
 
 

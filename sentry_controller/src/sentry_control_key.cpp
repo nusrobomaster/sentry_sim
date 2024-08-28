@@ -1,8 +1,8 @@
-#include <std_msgs/String.h>  
-#include "ros/ros.h"  
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
 #include "sentry_controller/sentry_control_key.h"
-#include "string"
-
+#include <string>
+#include <signal.h>
 
 std::string cmd_vel_topic;
 int velocity_linear;
@@ -10,63 +10,77 @@ int velocity_angular;
 
 KeyboardReader input;
 
-
-TeleopTurtle::TeleopTurtle():
-  linear_x(0),
-  linear_y(0),
-  angular_(0),
-  l_scale_(10.0),
-  a_scale_(10.0)
+class TeleopTurtle : public rclcpp::Node
 {
-  
-  nhPrivate.getParam("cmd_vel_topic", cmd_vel_topic);
-  nhPrivate.getParam("velocity_linear", velocity_linear);
-  nhPrivate.getParam("velocity_angular", velocity_angular);
-  l_scale_ = velocity_linear;
-  a_scale_ = velocity_angular;
-  nh_.param("scale_angular", a_scale_, a_scale_);
-  nh_.param("scale_linear", l_scale_, l_scale_);
+public:
+  TeleopTurtle()
+  : Node("sentry_control_node"),
+    linear_x(0),
+    linear_y(0),
+    angular_(0),
+    l_scale_(10.0),
+    a_scale_(10.0)
+  {
+    // Declare and get parameters
+    // this->declare_parameter<std::string>("cmd_vel_topic", "cmd_vel");
+    // this->declare_parameter<int>("velocity_linear", 10);
+    // this->declare_parameter<int>("velocity_angular", 10);
 
-  twist_pub_ = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic, 1);
-}
+    l_scale_ = velocity_linear;
+    a_scale_ = velocity_angular;
+
+    this->declare_parameter<double>("scale_angular", a_scale_);
+    this->declare_parameter<double>("scale_linear", l_scale_);
+
+    this->get_parameter("cmd_vel_topic", cmd_vel_topic);
+    this->get_parameter("velocity_linear", velocity_linear);
+    this->get_parameter("velocity_angular", velocity_angular);
+    this->get_parameter("scale_angular", a_scale_);
+    this->get_parameter("scale_linear", l_scale_);
+
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
+  }
+
+  void keyLoop();
+
+private:
+  double linear_x, linear_y, angular_, l_scale_, a_scale_;
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_pub_;
+};
 
 void quit(int sig)
 {
   (void)sig;
   input.shutdown();
-  ros::shutdown();
+  rclcpp::shutdown();
   exit(0);
 }
 
-
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "sentry_control_node");
-  TeleopTurtle sentry_control_node;
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<TeleopTurtle>();
 
-  signal(SIGINT,quit);
+  signal(SIGINT, quit);
 
-  sentry_control_node.keyLoop();
+  node->keyLoop();
   quit(0);
-  
-  return(0);
-}
 
+  return 0;
+}
 
 void TeleopTurtle::keyLoop()
 {
   char c;
-  bool dirty=false;
+  bool dirty = false;
 
   puts("Reading from keyboard");
   puts("---------------------------");
   puts("Use arrow keys to move the sentry in x,y direction.");
   puts("Use Q/E keys to turn left/right.");
-  puts("press 'c' to stop.");
+  puts("Press 'c' to stop.");
 
-
-
-  for(;;)
+  for (;;)
   {
     // get the next event from the keyboard  
     try
@@ -79,63 +93,60 @@ void TeleopTurtle::keyLoop()
       return;
     }
 
-    linear_x=linear_y=angular_=0;
-    ROS_DEBUG("value: 0x%02X\n", c);
-  
-    switch(c)
+    linear_x = linear_y = angular_ = 0;
+    RCLCPP_DEBUG(this->get_logger(), "value: 0x%02X\n", c);
+
+    switch (c)
     {
       case KEYCODE_LEFT:
-        ROS_DEBUG("LEFT");
+        RCLCPP_DEBUG(this->get_logger(), "LEFT");
         linear_y = 1.0;
         dirty = true;
         break;
       case KEYCODE_RIGHT:
-        ROS_DEBUG("RIGHT");
+        RCLCPP_DEBUG(this->get_logger(), "RIGHT");
         linear_y = -1.0;
         dirty = true;
         break;
       case KEYCODE_UP:
-        ROS_DEBUG("UP");
+        RCLCPP_DEBUG(this->get_logger(), "UP");
         linear_x = 1.0;
         dirty = true;
         break;
       case KEYCODE_DOWN:
-        ROS_DEBUG("DOWN");
+        RCLCPP_DEBUG(this->get_logger(), "DOWN");
         linear_x = -1.0;
         dirty = true;
         break;
       case KEYCODE_Q:
-        ROS_DEBUG("TURN_LEFT");
+        RCLCPP_DEBUG(this->get_logger(), "TURN_LEFT");
         angular_ = 1.0;
         dirty = true;
         break;
       case KEYCODE_E:
-        ROS_DEBUG("TURN_RIGHT");
+        RCLCPP_DEBUG(this->get_logger(), "TURN_RIGHT");
         angular_ = -1.0;
         dirty = true;
         break;
       case KEYCODE_C:
-        ROS_DEBUG("quit");
+        RCLCPP_DEBUG(this->get_logger(), "STOP");
         angular_ = 0.0;
         linear_x = 0.0;
         linear_y = 0.0;
         dirty = true;
         break;
-
     }
-   
 
-    geometry_msgs::Twist twist;
-    twist.angular.z = a_scale_*angular_;
-    twist.linear.x = l_scale_*linear_x;
-    twist.linear.y = l_scale_*linear_y;
-    if(dirty ==true)
+    geometry_msgs::msg::Twist twist;
+    twist.angular.z = a_scale_ * angular_;
+    twist.linear.x = l_scale_ * linear_x;
+    twist.linear.y = l_scale_ * linear_y;
+    if (dirty == true)
     {
-      twist_pub_.publish(twist);    
-      dirty=false;
+      twist_pub_->publish(twist);
+      dirty = false;
     }
   }
-
 
   return;
 }
