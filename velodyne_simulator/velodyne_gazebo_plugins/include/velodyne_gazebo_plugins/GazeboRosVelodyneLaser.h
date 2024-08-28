@@ -41,9 +41,8 @@
 #endif
 
 // Custom Callback Queue
-#include <ros/ros.h>
-#include <ros/callback_queue.h>
-#include <ros/advertise_options.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/callback_group.hpp>
 
 #include <sdf/Param.hh>
 #include <gazebo/physics/physics.hh>
@@ -93,11 +92,11 @@ namespace gazebo
     /// \brief The parent ray sensor
     private: sensors::RaySensorPtr parent_ray_sensor_;
 
-    /// \brief Pointer to ROS node
-    private: ros::NodeHandle* nh_;
+    /// \brief Pointer to ROS 2 node
+    private: rclcpp::Node::SharedPtr nh_;
 
-    /// \brief ROS publisher
-    private: ros::Publisher pub_;
+    /// \brief ROS 2 publisher
+    private: rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr pub_;
 
     /// \brief topic name
     private: std::string topic_name_;
@@ -131,15 +130,15 @@ namespace gazebo
     }
 
     /// \brief A mutex to lock access
-    private: boost::mutex lock_;
+    private: std::mutex lock_;
 
     /// \brief For setting ROS name space
     private: std::string robot_namespace_;
 
-    // Custom Callback Queue
-    private: ros::CallbackQueue laser_queue_;
+    // Custom Callback Group
+    private: rclcpp::CallbackGroup::SharedPtr callback_group_;
     private: void laserQueueThread();
-    private: boost::thread callback_laser_queue_thread_;
+    private: std::thread callback_laser_queue_thread_;
 
     // Subscribe to gazebo laserscan
     private: gazebo::transport::NodePtr gazebo_node_;
