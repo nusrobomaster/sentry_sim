@@ -1,0 +1,5 @@
+source;share/sentry_controller/local_setup.bash
+source;share/sentry_controller/local_setup.dsv
+source;share/sentry_controller/local_setup.ps1
+source;share/sentry_controller/local_setup.sh
+source;share/sentry_controller/local_setup.zsh

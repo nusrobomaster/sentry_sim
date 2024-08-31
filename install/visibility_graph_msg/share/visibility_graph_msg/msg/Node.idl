@@ -1,0 +1,38 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from visibility_graph_msg/msg/Node.msg
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/Point.idl"
+#include "std_msgs/msg/Header.idl"
+
+module visibility_graph_msg {
+  module msg {
+    struct Node {
+      std_msgs::msg::Header header;
+
+      uint32 id;
+
+      uint8 freetype;
+
+      geometry_msgs::msg::Point position;
+
+      sequence<geometry_msgs::msg::Point> surface_dirs;
+
+      boolean is_covered;
+
+      boolean is_frontier;
+
+      boolean is_navpoint;
+
+      boolean is_boundary;
+
+      sequence<uint32> connect_nodes;
+
+      sequence<uint32> poly_connects;
+
+      sequence<uint32> contour_connects;
+
+      sequence<uint32> trajectory_connects;
+    };
+  };
+};

@@ -1,0 +1,9 @@
+source;share/visibility_graph_msg/hook/cmake_prefix_path.ps1
+source;share/visibility_graph_msg/hook/cmake_prefix_path.dsv
+source;share/visibility_graph_msg/hook/cmake_prefix_path.sh
+source;share/visibility_graph_msg/hook/ld_library_path_lib.ps1
+source;share/visibility_graph_msg/hook/ld_library_path_lib.dsv
+source;share/visibility_graph_msg/hook/ld_library_path_lib.sh
+source;share/visibility_graph_msg/hook/pythonpath.ps1
+source;share/visibility_graph_msg/hook/pythonpath.dsv
+source;share/visibility_graph_msg/hook/pythonpath.sh

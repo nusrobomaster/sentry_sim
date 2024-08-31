@@ -1,0 +1,8 @@
+source;share/goalpoint_rviz_plugin/hook/cmake_prefix_path.ps1
+source;share/goalpoint_rviz_plugin/hook/cmake_prefix_path.dsv
+source;share/goalpoint_rviz_plugin/hook/cmake_prefix_path.sh
+source;share/goalpoint_rviz_plugin/local_setup.bash
+source;share/goalpoint_rviz_plugin/local_setup.dsv
+source;share/goalpoint_rviz_plugin/local_setup.ps1
+source;share/goalpoint_rviz_plugin/local_setup.sh
+source;share/goalpoint_rviz_plugin/local_setup.zsh

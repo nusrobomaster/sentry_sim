@@ -1,0 +1,8 @@
+[submodule "autonomous_exploration_development_environment"]
+	path = autonomous_exploration_development_environment
+	url = https://github.com/HongbiaoZ/autonomous_exploration_development_environment.git
+	branch = humble
+[submodule "far_planner"]
+	path = far_planner
+	url = https://github.com/MichaelFYang/far_planner.git
+	branch = humble-jazzy
