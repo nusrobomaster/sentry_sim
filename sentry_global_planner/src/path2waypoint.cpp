@@ -146,7 +146,7 @@ private:
 
     std::vector<geometry_msgs::msg::PoseStamped> way_point_array_;
     geometry_msgs::msg::PoseStamped goal_point_;
-    // geometry_msgs::msg::PointStamped waypointMsgs_;
+    geometry_msgs::msg::PointStamped waypointMsgs_;
     int path_index_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subPose_;

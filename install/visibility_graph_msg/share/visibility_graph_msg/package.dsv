@@ -7,3 +7,8 @@ source;share/visibility_graph_msg/hook/ld_library_path_lib.sh
 source;share/visibility_graph_msg/hook/pythonpath.ps1
 source;share/visibility_graph_msg/hook/pythonpath.dsv
 source;share/visibility_graph_msg/hook/pythonpath.sh
+source;share/visibility_graph_msg/local_setup.bash
+source;share/visibility_graph_msg/local_setup.dsv
+source;share/visibility_graph_msg/local_setup.ps1
+source;share/visibility_graph_msg/local_setup.sh
+source;share/visibility_graph_msg/local_setup.zsh

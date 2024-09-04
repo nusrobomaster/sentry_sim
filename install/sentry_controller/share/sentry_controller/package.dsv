@@ -1,3 +1,6 @@
+source;share/sentry_controller/hook/cmake_prefix_path.ps1
+source;share/sentry_controller/hook/cmake_prefix_path.dsv
+source;share/sentry_controller/hook/cmake_prefix_path.sh
 source;share/sentry_controller/local_setup.bash
 source;share/sentry_controller/local_setup.dsv
 source;share/sentry_controller/local_setup.ps1

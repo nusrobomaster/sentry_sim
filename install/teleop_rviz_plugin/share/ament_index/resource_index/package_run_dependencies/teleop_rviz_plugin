@@ -1,0 +1,1 @@
+rclcpp;rclpy;std_msgs;rviz2;rviz_common;rviz_rendering;rviz_default_plugins;qtbase5-dev;geometry_msgs;libqt5-core;libqt5-gui;libqt5-widgets;pluginlib;ament_lint_auto;ament_lint_common

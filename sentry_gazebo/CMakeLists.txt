@@ -154,6 +154,17 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  DIRECTORY urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  PROGRAMS
+  launch/gazebo_rmuc_launch.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 

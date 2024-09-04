@@ -1,0 +1,2 @@
+source;share/sentry_global_planner/environment/ament_prefix_path.sh
+source;share/sentry_global_planner/environment/path.sh
