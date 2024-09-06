@@ -160,6 +160,11 @@ install(
 )
 
 install(
+  DIRECTORY worlds
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
   PROGRAMS
   launch/gazebo_rmuc_launch.py
   DESTINATION lib/${PROJECT_NAME}

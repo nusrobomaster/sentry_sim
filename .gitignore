@@ -1,7 +1,7 @@
-build
+build/
 log/*.txt
 Log/*.txt
 Log/*.csv
 Log/*.pdf
-log
+log/
 .pcd

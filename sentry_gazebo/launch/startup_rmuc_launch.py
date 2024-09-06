@@ -48,25 +48,25 @@ def generate_launch_description():
         ),
 
         # Launch Autonomous Exploration Development Environment, load map analysis, partial navigation
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(vehicle_simulator_share, 'launch', 'system_rmuc_launch.py')
-            ),
-            launch_arguments={
-                'world_name': LaunchConfiguration('world_name'),
-                'vehicleX': LaunchConfiguration('x_pos'),
-                'vehicleY': LaunchConfiguration('y_pos'),
-                'gazebo_gui': LaunchConfiguration('gui'),
-                'checkTerrainConn': LaunchConfiguration('checkTerrainConn'),
-                'maxSpeed': LaunchConfiguration('maxSpeed'),
-                'autonomySpeed': LaunchConfiguration('autonomySpeed'),
-            }.items()
-        ),
+        # IncludeLaunchDescription(
+        #     PythonLaunchDescriptionSource(
+        #         os.path.join(vehicle_simulator_share, 'launch', 'system_rmuc_launch.py')
+        #     ),
+        #     launch_arguments={
+        #         'world_name': LaunchConfiguration('world_name'),
+        #         'vehicleX': LaunchConfiguration('x_pos'),
+        #         'vehicleY': LaunchConfiguration('y_pos'),
+        #         'gazebo_gui': LaunchConfiguration('gui'),
+        #         'checkTerrainConn': LaunchConfiguration('checkTerrainConn'),
+        #         'maxSpeed': LaunchConfiguration('maxSpeed'),
+        #         'autonomySpeed': LaunchConfiguration('autonomySpeed'),
+        #     }.items()
+        # ),
 
-        # Launch far planner
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(far_planner_share, 'launch', 'far_planner_launch.py')
-            )
-        ),
+        # # Launch far planner
+        # IncludeLaunchDescription(
+        #     PythonLaunchDescriptionSource(
+        #         os.path.join(far_planner_share, 'launch', 'far_planner_launch.py')
+        #     )
+        # ),
     ])
