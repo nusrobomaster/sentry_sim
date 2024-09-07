@@ -50,7 +50,7 @@ Publishes:
   tf transformation from map to sensor
 */
 
-using namespace std;
+// using namespace std;
 
 const double PI = 3.1415926;
 
@@ -120,7 +120,7 @@ pcl::VoxelGrid<pcl::PointXYZI> terrainDwzFilter;
 rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubScanPointer = nullptr;
 rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr pubRobotSpeed = nullptr;
 
-std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster;
+// std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster;
 // std::shared_ptr<tf2_ros::Buffer> tf_buffer;
 // std::shared_ptr<tf2_ros::TransformListener> tf_listener;
 
@@ -129,8 +129,9 @@ class RobotSimulator : public rclcpp::Node
 public:
   RobotSimulator() : Node("robot_simulator")
   {
-    tf_buffer_ = make_unique<tf2_ros::Buffer>(this->get_clock());
-    tf_listener_ = make_shared<tf2_ros::TransformListener>(tf_buffer_);
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
     // Declare and get parameters
     this->declare_parameter<bool>("use_gazebo_time", use_gazebo_time);
@@ -170,6 +171,10 @@ public:
     Odom_quat_get_.y = 0;
     Odom_quat_get_.z = 0;
     Odom_quat_get_.w = 0;
+
+    //Use pubscan publisher as a guideline for the entire code for convenience in adjusting the functions to send upon receiving
+    pubScanPointer = &pubScan;
+    pubRobotSpeed = &pubspeed;
 
     terrain_dwz_filter_.setLeafSize(terrainVoxelSize, terrainVoxelSize, terrainVoxelSize);
 
@@ -242,7 +247,7 @@ private:
     // Publish registered scan
     sensor_msgs::msg::PointCloud2 scanData2;
     pcl::toROSMsg(*scanData, scanData2);
-    pcl_ros::transformPointCloud("map", *scanIn, scanData2, tf_buffer_);
+    pcl_ros::transformPointCloud("map", *scanIn, scanData2, *tf_buffer_);
 
     scanData2.header.stamp = rclcpp::Time(odomRecTime);
     scanData2.header.frame_id = "map";
@@ -396,7 +401,7 @@ private:
     geometry_msgs::msg::TransformStamped transform_stamped;
     try
     {
-      transform_stamped = tf_buffer_.lookupTransform("map", "velodyne", tf2::TimePointZero);
+      transform_stamped = tf_buffer_->lookupTransform("map", "velodyne", tf2::TimePointZero);
     }
     catch (tf2::TransformException &ex)
     {
@@ -452,7 +457,7 @@ private:
     odom_data.pose.pose.position = Odom_pose_get;
     
     // Update z position based on transform
-    Odom_pose_get.z = transform.transform.translation.z;
+    Odom_pose_get.z = transform_stamped.transform.translation.z;
     
     bool quat_valid = (Odom_quat_get.x != 0 || 
                        Odom_quat_get.y != 0 || 
@@ -482,7 +487,7 @@ private:
         odom_trans.transform.rotation.w = Odom_quat_get.w;
     
         // Broadcast the transform using tf2_ros::TransformBroadcaster
-        tf_broadcaster_.sendTransform(odom_trans);
+        tf_broadcaster_->sendTransform(odom_trans);
         }
 
     }  
@@ -497,9 +502,9 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_scan_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr pub_speed_;
 
-  tf2_ros::TransformBroadcaster tf_broadcaster_;
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
   geometry_msgs::msg::Quaternion Odom_quat_get_;
   geometry_msgs::msg::Point Odom_pose_get_;

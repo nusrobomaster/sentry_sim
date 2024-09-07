@@ -45,9 +45,9 @@ find_package(pcl_ros REQUIRED)
 add_executable(vehicleSimulator src/vehicleSimulator.cpp)
 ament_target_dependencies(vehicleSimulator rclcpp std_msgs sensor_msgs nav_msgs geometry_msgs tf2 tf2_ros tf2_geometry_msgs message_filters pcl_ros pcl_conversions ros_gz gazebo_msgs)
 target_link_libraries(vehicleSimulator ${OpenCV_LIBRARIES} ${PCL_LIBRARIES})
-# add_executable(robotSimulator src/robotSimulator.cpp)
-# ament_target_dependencies(robotSimulator rclcpp std_msgs sensor_msgs nav_msgs geometry_msgs tf2 tf2_ros tf2_geometry_msgs message_filters pcl_ros pcl_conversions ros_gz gazebo_msgs visualization_msgs)
-# target_link_libraries(robotSimulator ${OpenCV_LIBRARIES} ${PCL_LIBRARIES})
+add_executable(robotSimulator src/robotSimulator.cpp)
+ament_target_dependencies(robotSimulator rclcpp std_msgs sensor_msgs nav_msgs geometry_msgs tf2 tf2_ros tf2_geometry_msgs message_filters pcl_ros pcl_conversions ros_gz gazebo_msgs visualization_msgs)
+target_link_libraries(robotSimulator ${OpenCV_LIBRARIES} ${PCL_LIBRARIES})
 
 
 install(TARGETS
@@ -55,9 +55,9 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME})
 
 
-# install(TARGETS
-#   robotSimulator
-#   DESTINATION lib/${PROJECT_NAME})
+install(TARGETS
+  robotSimulator
+  DESTINATION lib/${PROJECT_NAME})
 
 install(
   DIRECTORY
