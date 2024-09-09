@@ -173,8 +173,8 @@ public:
     Odom_quat_get_.w = 0;
 
     //Use pubscan publisher as a guideline for the entire code for convenience in adjusting the functions to send upon receiving
-    pubScanPointer = &pubScan;
-    pubRobotSpeed = &pubspeed;
+    pubScanPointer = pub_scan_;
+    pubRobotSpeed = pub_speed_;
 
     terrain_dwz_filter_.setLeafSize(terrainVoxelSize, terrainVoxelSize, terrainVoxelSize);
 
@@ -244,7 +244,28 @@ private:
     pcl::fromROSMsg(*scanIn, *scanData);
     pcl::removeNaNFromPointCloud(*scanData, *scanData, scanInd);
 
-    // Publish registered scan
+    // Not sure what this is for but copied over anyways  
+    // int scanDataSize = scanData->points.size();
+    // for (int i = 0; i < scanDataSize; i++)
+    // {
+    //   float pointX1 = scanData->points[i].x;
+    //   float pointY1 = scanData->points[i].y * cosTerrainRecRoll - scanData->points[i].z * sinTerrainRecRoll;
+    //   float pointZ1 = scanData->points[i].y * sinTerrainRecRoll + scanData->points[i].z * cosTerrainRecRoll;
+  
+    //   float pointX2 = pointX1 * cosTerrainRecPitch + pointZ1 * sinTerrainRecPitch;
+    //   float pointY2 = pointY1;
+    //   float pointZ2 = -pointX1 * sinTerrainRecPitch + pointZ1 * cosTerrainRecPitch;
+  
+    //   float pointX3 = pointX2 + vehicleRecX;
+    //   float pointY3 = pointY2 + vehicleRecY;
+    //   float pointZ3 = pointZ2 + vehicleRecZ;
+  
+    //   scanData->points[i].x = pointX3;
+    //   scanData->points[i].y = pointY3;
+    //   scanData->points[i].z = pointZ3;
+    // }
+
+    // Publish 5Hz registered scan msgs
     sensor_msgs::msg::PointCloud2 scanData2;
     pcl::toROSMsg(*scanData, scanData2);
     pcl_ros::transformPointCloud("map", *scanIn, scanData2, *tf_buffer_);
@@ -373,13 +394,13 @@ private:
   }
 
   // Subscribe to the original odom topic then change the coordinate system of the odom
-  void odomHandler(const nav_msgs::msg::Odometry::ConstSharedPtr odomIn)
+  void odomHandler(const nav_msgs::msg::Odometry::SharedPtr odomIn)
   {
     Odom_quat_get = odomIn->pose.pose.orientation;
     Odom_pose_get = odomIn->pose.pose.position;
   }
 
-  void speedHandler(const geometry_msgs::msg::TwistStamped::ConstPtr& speedIn)
+  void speedHandler(const geometry_msgs::msg::TwistStamped::SharedPtr speedIn)
   {
       geometry_msgs::msg::Twist speed_temp = speedIn->twist;
     
@@ -391,7 +412,7 @@ private:
       // speed_temp.angular.z =speedIn->twist.angular.z;
     
       pubRobotSpeed->publish(speed_temp);
-}  
+  }  
 
   void updateLoop()
   {

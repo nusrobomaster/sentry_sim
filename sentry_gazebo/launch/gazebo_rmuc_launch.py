@@ -26,11 +26,8 @@ def generate_launch_description():
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([PathJoinSubstitution([FindPackageShare('ros_gz_sim'), 'launch', 'gz_sim.launch.py'])]),
             launch_arguments={
-                'gz_args': [
-                    PathJoinSubstitution([FindPackageShare('sentry_gazebo'), 'worlds', '2023_v_4_1.world']),
-                    TextSubstitution(text=' -s '), LaunchConfiguration('paused'),
-                    TextSubstitution(text=' -g '), LaunchConfiguration('gui')
-                ]
+                'gz_args': ['-v 4 -r ', PathJoinSubstitution([FindPackageShare('sentry_gazebo'), 'worlds', '2023_v_4_1.sdf'])],
+                'on_exit_shutdown': 'true'
             }.items(),
         ),
 

@@ -5,3 +5,4 @@ Log/*.csv
 Log/*.pdf
 log/
 .pcd
+install/

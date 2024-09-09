@@ -1,3 +1,5 @@
+import os
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
 from launch_ros.actions import Node
@@ -5,9 +7,21 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Comm
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
+from ament_index_python.packages import get_package_share_directory
+
+import xacro
 
 
 def generate_launch_description():
+
+    sentry_gazebo_share = get_package_share_directory('sentry_gazebo')
+    xacro_file = os.path.join(sentry_gazebo_share, 'urdf/', 'base_car.urdf.xacro')
+    assert os.path.exists(xacro_file), "The base_car.urdf.xacro doesnt exist in " + str(xacro_file)
+
+    robot_description_config = xacro.process_file(xacro_file)
+    robot_desc = robot_description_config.toxml()
+    # print(robot_desc)
+ 
     return LaunchDescription([
         # Declare launch arguments
         DeclareLaunchArgument('paused', default_value='false'),
@@ -33,19 +47,20 @@ def generate_launch_description():
         ),
 
         # Spawn the robot in Gazebo using ros_gz's spawn_entity node
-        # Node(
-        #     package='ros_gz_sim',
-        #     executable='create',
-        #     name='spawn_urdf',
-        #     output='screen',
-        #     arguments=[
-        #         '-file', Command(['xacro ', PathJoinSubstitution([FindPackageShare('sentry_gazebo'), 'urdf', 'base_car.urdf.xacro'])]),
-        #         '-name', 'mobile_base',
-        #         '-x', LaunchConfiguration('x_pos'),
-        #         '-y', LaunchConfiguration('y_pos'),
-        #         '-z', LaunchConfiguration('z_pos')
-        #     ],
-        # ),
+        Node(
+            package='ros_gz_sim',
+            executable='create',
+            name='spawn_urdf',
+            arguments=[
+                '-topic', '/robot_description',
+                '-name', 'mecanumbot',
+                '-x', 'x_pos',
+                '-Y', 'y_pos',
+                '-z', 'z_pos'
+
+            ],
+            output='screen'
+        ),
 
         # # Load configuration YAML file for robot control
         # # Node(
@@ -56,15 +71,16 @@ def generate_launch_description():
         # # ),
 
         # # Robot state publisher node (publishing transforms for robot's joints)
-        # Node(
-        #     package='robot_state_publisher',
-        #     executable='robot_state_publisher',
-        #     name='robot_state_publisher',
-        #     parameters=[{
-        #         'use_sim_time': LaunchConfiguration('use_sim_time'),
-        #         'publish_frequency': 30.0
-        #     }],
-        # ),
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            name='robot_state_publisher',
+            parameters=[{
+                'use_sim_time': LaunchConfiguration('use_sim_time'),
+                'robot_description': robot_desc,
+                'publish_frequency': 30.0
+            }],
+        ),
 
         # # Control node for sending velocity commands
         # Node(
