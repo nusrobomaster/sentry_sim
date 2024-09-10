@@ -53,11 +53,10 @@ def generate_launch_description():
             name='spawn_urdf',
             arguments=[
                 '-topic', '/robot_description',
-                '-name', 'mecanumbot',
-                '-x', 'x_pos',
-                '-Y', 'y_pos',
-                '-z', 'z_pos'
-
+                '-name', 'testbot',
+                '-x', '8',
+                '-y', '6',
+                '-z', '0.5'
             ],
             output='screen'
         ),
@@ -83,18 +82,18 @@ def generate_launch_description():
         ),
 
         # # Control node for sending velocity commands
-        # Node(
-        #     package='sentry_controller',
-        #     executable='sentry_control_key',
-        #     name='sentry_control_key',
-        #     output='screen',
-        #     parameters=[{
-        #         'cmd_vel_topic': '/A/car0/cmd_vel',
-        #         'velocity_linear': 3,
-        #         'velocity_angular': 3
-        #     }],
-        #     prefix='xterm -e',
-        # ),
+        Node(
+            package='sentry_controller',
+            executable='sentry_control_key',
+            name='sentry_control_key',
+            output='screen',
+            parameters=[{
+                'cmd_vel_topic': '/A/car0/cmd_vel',
+                'velocity_linear': 3,
+                'velocity_angular': 3
+            }],
+            prefix='xterm -e',
+        ),
 
         # # Static transform publisher for map to odom
         # Node(

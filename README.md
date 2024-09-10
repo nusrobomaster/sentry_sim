@@ -1,39 +1,30 @@
 # sentry_sim
-The simulation of  sentry in RoboMaster 2023/2024 season based on gazebo, [autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment), [far_planner](https://github.com/MichaelFYang/far_planner)
 
-https://github.com/66Lau/sentry_sim/assets/95697190/59206443-fcca-4397-8dfb-3bf6a5fa4ec9
+Sentry simulation on gazebo. Modified form the original forked library to make it compatiable for ROS 2 Humble with ignition gazebo fortress.
 
+## Progress
+Currently able to launch RMUC arena in gazebo and spawn the robot from xacro file (arbitrary model). **Next goal is to debug code for controlling the sentry in the simulation with key controls.**
 
-
-## Environment Setting
-- CPU:4800h
-- GPU 2060
-- RAM: 16G
-- OS: Ubuntu 20.04
-- ROS: noetic
-
-Some files in `autonomous_exploration_development_environment`, `far_planner` package are modified, therefore, I recommend that using `noetic` as your ROS version and cloning from my repo directly. Because I added collison attribute for the robot and used different controller, which is different from the original version of the [autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment).
-
-```SHELL
-sudo apt-get install xterm
-sudo apt install libusb-dev
-
-cd ~
-mkdir ws_sentry_sim
-cd ws_sentry_sim
-mkdir src
-cd src
-git clone git@github.com:66Lau/sentry_sim.git
-cd ..
-catkin_make
-```
+## Launch files
+Simulation launch files are located in `sentry_gazebo`. 
 
 ## Launch Simulation
 ```SHELL
-cd ws_sentry_sim
-source devel/setup.bash
-roslaunch sentry_gazebo startup_rmuc.launch
+./build_packages.sh
+source install/setup.bash
+ros2 launch sentry_gazebo startup_rmuc.launch
 ```
+
+## Packages
+[Work in Progress]
+
+## Dependencies
+[autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment)
+[far_planner](https://github.com/MichaelFYang/far_planner)
+
+https://github.com/66Lau/sentry_sim/assets/95697190/59206443-fcca-4397-8dfb-3bf6a5fa4ec9
+
+Some files in `autonomous_exploration_development_environment`, `far_planner` package are modified.
 
 <!-- https://github.com/66Lau/sentry_sim/assets/95697190/a8513286-9576-4109-98dd-e6898c791bb9
 
