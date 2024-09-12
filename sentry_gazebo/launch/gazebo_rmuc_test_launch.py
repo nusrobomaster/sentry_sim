@@ -15,12 +15,11 @@ import xacro
 def generate_launch_description():
 
     sentry_gazebo_share = get_package_share_directory('sentry_gazebo')
-    xacro_file = os.path.join(sentry_gazebo_share, 'urdf/', 'base_car.urdf.xacro')
-    assert os.path.exists(xacro_file), "The base_car.urdf.xacro doesnt exist in " + str(xacro_file)
+    xacro_file = os.path.join(sentry_gazebo_share, 'urdf/', 'test_robot.xacro')
+    assert os.path.exists(xacro_file), "The test_robot.xacro doesnt exist in " + str(xacro_file)
 
     robot_description_config = xacro.process_file(xacro_file)
     robot_desc = robot_description_config.toxml()
-    # print(robot_desc)
  
     return LaunchDescription([
         # Declare launch arguments
@@ -81,19 +80,25 @@ def generate_launch_description():
             }],
         ),
 
-        # # Control node for sending velocity commands
         Node(
-            package='sentry_controller',
-            executable='sentry_control_key',
-            name='sentry_control_key',
+            package='teleop_twist_keyboard',
+            name='teleop',
+            executable="teleop_twist_keyboard",
+            remappings=[
+                ('/cmd_vel', '/A/car0/cmd_vel'),
+                ],
             output='screen',
-            parameters=[{
-                'cmd_vel_topic': '/A/car0/cmd_vel',
-                'velocity_linear': 3,
-                'velocity_angular': 3
-            }],
-            prefix='xterm -e',
+            prefix = 'xterm -e',
+            
         ),
+
+        Node(
+            package='ros_gz_bridge',
+            name='ros_gz_bridge',
+            executable='parameter_bridge',
+            arguments=['/A/car0/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist'],
+            output='screen'
+        )
 
         # # Static transform publisher for map to odom
         # Node(

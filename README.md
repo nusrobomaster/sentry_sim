@@ -3,7 +3,9 @@
 Sentry simulation on gazebo. Modified form the original forked library to make it compatiable for ROS 2 Humble with ignition gazebo fortress.
 
 ## Progress
-Currently able to launch RMUC arena in gazebo and spawn the robot from xacro file (arbitrary model). **Next goal is to debug code for controlling the sentry in the simulation with key controls.**
+Currently able to launch RMUC arena in gazebo and spawn the robot from xacro file (arbitrary model) with correct physics. **Next goal is to debug code for controlling the sentry in the simulation with key controls.**
+
+Latest test launching from `gazebo_rmuc_test_launch.py` with urdf from `test_robot.xacro`.
 
 ## Launch files
 Simulation launch files are located in `sentry_gazebo`. 
@@ -12,15 +14,20 @@ Simulation launch files are located in `sentry_gazebo`.
 ```SHELL
 ./build_packages.sh
 source install/setup.bash
-ros2 launch sentry_gazebo startup_rmuc.launch
+ros2 launch sentry_gazebo gazebo_rmuc_test_launch.py
 ```
 
 ## Packages
-[Work in Progress]
+Work in progress...
 
 ## Dependencies
+Set up gazebo fortress (might need to install binaries first)
+```SHELL
+sudo apt-get install ros-humble-ros-gz
+sudo apt-get install ros-humble-ros-ign-bridge
+```
+
 [autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment)
-[far_planner](https://github.com/MichaelFYang/far_planner)
 
 https://github.com/66Lau/sentry_sim/assets/95697190/59206443-fcca-4397-8dfb-3bf6a5fa4ec9
 

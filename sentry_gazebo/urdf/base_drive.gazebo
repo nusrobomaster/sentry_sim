@@ -79,7 +79,8 @@
         <gazebo>
             <plugin name="mecanum_controller" filename="libgazebo_ros_planar_move.so">
                 <robotNamespace>$(arg car_namespace)/$(arg car_name)</robotNamespace>
-                <commandTopic>cmd_vel</commandTopic>
+                <commandTopic>/A/car0/cmd_vel</commandTopic>
+                <!-- <remapping>cmd_vel:=/A/car0/cmd_vel</remapping> -->
                 <odometryTopic>odom</odometryTopic>
                 <odometryFrame>odom</odometryFrame>
                 <leftFrontJoint>join_left_front</leftFrontJoint>
