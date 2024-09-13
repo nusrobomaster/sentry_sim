@@ -29,6 +29,13 @@ sudo apt-get install ros-humble-ros-ign-bridge
 
 [autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment)
 
+## References
+[pb_rm_simulation](https://github.com/LihanChen2004/pb_rm_simulation) - Another helpful sentry simulation package developed in ROS 2.
+
+
+## End Goal
+This is an idea of what the simulation should ultimately be able to do based on the original project.
+
 https://github.com/66Lau/sentry_sim/assets/95697190/59206443-fcca-4397-8dfb-3bf6a5fa4ec9
 
 Some files in `autonomous_exploration_development_environment`, `far_planner` package are modified.
@@ -48,14 +55,6 @@ https://github.com/66Lau/sentry_sim/assets/95697190/b711e6e7-a677-423d-bf40-1831
 <div align="center"><img src="img/far_planner.png" width=90% /></div>
 <div align="center">Global navigation(far_planner)</div>
 <br>
-
-
-## Reference
-Appreciate!
-- [CMU-autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment)
-- [CMU-FAR-planner](https://github.com/MichaelFYang/far_planner)
-- [KDRobot_RM2023Sentry_Navigation](https://github.com/Wangben1019/KDRobot_RM2023Sentry_Navigation)
-- [Hbut_LC_sentry](https://github.com/HBUTHUANGPX/Hbut_LC_sentry)
 
 ## Q&A
 
