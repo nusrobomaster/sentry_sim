@@ -179,49 +179,25 @@
     </inertial>
   </link>
 
-  <!-- Gazebo plugin settings related -->
-  <gazebo reference="base_link">
-    <material>Gazebo/Orange</material>
-  </gazebo>
-  <gazebo reference="wheel_1">
-    <material>Gazebo/Red</material>
-  </gazebo>
-  <gazebo reference="wheel_2">
-    <material>Gazebo/Black</material>
-  </gazebo>
-  <gazebo reference="wheel_3">
-    <material>Gazebo/Red</material>
-  </gazebo>
-  <gazebo reference="wheel_4">
-    <material>Gazebo/Black</material>
-  </gazebo>
-  <gazebo reference="imu_link">
-    <material>Gazebo/BuildingFrame</material>
-  </gazebo>
-  <gazebo reference="livox_frame">
-    <material>Gazebo/LightBlueLaser</material>
-  </gazebo>
-
-  <!-- Drive controller plugin-->
+  <!-- Robot Plugins-->
   <!-- https://gazebosim.org/docs/fortress/moving_robot/ -->
   <gazebo>
-    <!-- <plugin name="mecanum_controller" filename="libgazebo_ros_planar_move.so">
-      <robotNamespace>/</robotNamespace>
-        <commandTopic>/A/car0/cmd_vel</commandTopic> -->
-        <!-- <remapping>cmd_vel:=/A/car0/cmd_vel</remapping> -->
-        <!-- <odometryTopic>odom</odometryTopic>
-        <odometryFrame>odom</odometryFrame>
-        <leftFrontJoint>base_to_wheel1</leftFrontJoint>
-        <rightFrontJoint>base_to_wheel2</rightFrontJoint>
-        <leftRearJoint>base_to_wheel3</leftRearJoint>
-        <rightRearJoint>base_to_wheel4</rightRearJoint>
-        <odometryRate>60.0</odometryRate>
-        <robotBaseFrame>base_link</robotBaseFrame>
-    </plugin> -->
-    
-    <plugin
-        filename="libignition-gazebo-diff-drive-system.so"
-        name="ignition::gazebo::systems::DiffDrive">
+    <plugin filename="libignition-gazebo-sensors-system.so"
+            name="ignition::gazebo::systems::Sensors">
+        <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="libignition-gazebo-user-commands-system.so"
+            name="ignition::gazebo::systems::UserCommands">
+    </plugin>
+    <!--shows the scene in the GUI-->
+    <plugin filename="libignition-gazebo-scene-broadcaster-system.so"
+            name="ignition::gazebo::systems::SceneBroadcaster"> 
+    </plugin>
+
+    <!-- DiffDrive plugin -->
+    <!-- can be changed to libignition-gazebo-mecanum-drive-system.so for mecanum drive, there's even a wheel-slip plugin -->
+    <plugin filename="libignition-gazebo-diff-drive-system.so"
+            name="ignition::gazebo::systems::DiffDrive">
         <left_joint>base_to_wheel1</left_joint>
         <left_joint>base_to_wheel2</left_joint>
         <right_joint>base_to_wheel3</right_joint>
@@ -231,56 +207,51 @@
         <odom_publish_frequency>1</odom_publish_frequency>
         <topic>cmd_vel</topic>
     </plugin>
-
-    <!-- Moving Forward-->
+    <!-- Moving Forward with Arrow Key Control plugin -->
     <plugin filename="libignition-gazebo-triggered-publisher-system.so"
             name="ignition::gazebo::systems::TriggeredPublisher">
         <input type="ignition.msgs.Int32" topic="/keyboard/keypress">
-            <match field="data">16777235</match> <!-- Up arrow key -->
+            <match field="data">16777235</match>
         </input>
         <output type="ignition.msgs.Twist" topic="/cmd_vel">
             linear: {x: 0.5}, angular: {z: 0.0}
         </output>
     </plugin>
-
-    <!-- Moving Backward-->
+    <!-- Moving Backward with Arrow Key Control plugin -->
     <plugin filename="libignition-gazebo-triggered-publisher-system.so"
             name="ignition::gazebo::systems::TriggeredPublisher">
         <input type="ignition.msgs.Int32" topic="/keyboard/keypress">
-            <match field="data">16777237</match> <!-- Down arrow key -->
+            <match field="data">16777237</match>
         </input>
         <output type="ignition.msgs.Twist" topic="/cmd_vel">
             linear: {x: -0.5}, angular: {z: 0.0}
         </output>
     </plugin>
-
-    <!-- Turning Left-->
+    <!-- Turning Left with Arrow Key Control plugin -->
     <plugin filename="libignition-gazebo-triggered-publisher-system.so"
             name="ignition::gazebo::systems::TriggeredPublisher">
         <input type="ignition.msgs.Int32" topic="/keyboard/keypress">
-            <match field="data">16777234</match> <!-- Left arrow key -->
+            <match field="data">16777234</match>
         </input>
         <output type="ignition.msgs.Twist" topic="/cmd_vel">
             linear: {x: 0.0}, angular: {z: 0.5}
         </output>
     </plugin>
-
-    <!-- Turning Right-->
+    <!-- Turning Right with Arrow Key Control plugin -->
     <plugin filename="libignition-gazebo-triggered-publisher-system.so"
             name="ignition::gazebo::systems::TriggeredPublisher">
         <input type="ignition.msgs.Int32" topic="/keyboard/keypress">
-            <match field="data">16777236</match> <!-- Right arrow key -->
+            <match field="data">16777236</match>
         </input>
         <output type="ignition.msgs.Twist" topic="/cmd_vel">
             linear: {x: 0.0}, angular: {z: -0.5}
         </output>
     </plugin>
-
-    <!-- Stop-->
+    <!-- Stop with Key '1' Control plugin -->
     <plugin filename="libignition-gazebo-triggered-publisher-system.so"
             name="ignition::gazebo::systems::TriggeredPublisher">
         <input type="ignition.msgs.Int32" topic="/keyboard/keypress">
-            <match field="data">49</match> <!-- 1 key -->
+            <match field="data">49</match>
         </input>
         <output type="ignition.msgs.Twist" topic="/cmd_vel">
             linear: {x: 0.0}, angular: {z: 0.0}
@@ -288,13 +259,16 @@
     </plugin>
   </gazebo>
 
-  <!-- mid360_imu plugin -->
-  <!-- https://github.com/ros-simulation/gazebo_ros_pkgs/wiki/ROS-2-Migration:-IMU-Sensors -->
+  <!-- link plugins -->
+  <!-- there's also an odometry-publish-system plugin for publishing odom topic -->
+
+  <!-- mid360_imu sensor and its plugin -->
+  <!-- topic name in ign topic -l: /world/default/model/testbot/link/dummy/sensor/mid360_imu/imu -->
   <gazebo reference="imu_link">
     <sensor name="mid360_imu" type="imu">
       <always_on>true</always_on>
       <update_rate>100</update_rate>
-      <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+      <plugin name="ignition::gazebo::systems::Imu" filename="libignition-gazebo-imu-system.so">
         <ros>
           <namespace>/</namespace>
           <remapping>~/out:=/livox/imu</remapping>
@@ -304,6 +278,31 @@
     </sensor>
   </gazebo>
 
+  <!-- LiDAR sensor -->
+  <!-- https://gazebosim.org/docs/fortress/sensors/#lidar-sensor -->
+  <!-- topic name in ign topic -l: /world/default/model/testbot/link/dummy/sensor/lidar_sensor/scan -->
+  <gazebo reference="base_link">
+    <sensor type="gpu_ray" name="lidar_sensor">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>20</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-1.5708</min_angle>
+            <max_angle>1.5708</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.2</min>
+          <max>10.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </ray>
+    </sensor>
+  </gazebo>
   <!-- Livox-Mid360  -->
   <!--<xacro:include filename="$(find ros2_livox_simulation)/urdf/mid360.xacro" />
   <xacro:mid360 name="livox_frame" parent="base_link" topic="/livox/lidar">
