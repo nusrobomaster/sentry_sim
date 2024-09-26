@@ -130,10 +130,10 @@ def generate_launch_description():
         package='ros_gz_bridge',
         name='ros_gz_bridge',
         executable='parameter_bridge',
-        arguments=[
-            'cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist', # by running "ros2 topic echo /cmd_vel" can display,equals to transfer /keyboard/keypress to /cmd_vel
-            '/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU', # ros2 topic echo /imu cannot,seems bridge failed, equals to transfer /world/default.../imu to /imu
-            '/lidar@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan' # ros2 topic echo /lidar cannot
+        arguments=[ # bridge topics,now use ros2 topic echo /your_topic to check
+            'cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist', # bridge cmd_vel topic
+            '/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU', # bridge imu topic
+            '/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan' # bridge scan topic
         ],
         output='screen'
     )
