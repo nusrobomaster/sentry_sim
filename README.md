@@ -1,3 +1,5 @@
+## **This is the forked version and only works for ROS1, development work is in other branches**
+
 # sentry_sim
 The simulation of  sentry in RoboMaster 2023/2024 season based on gazebo, [autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment), [far_planner](https://github.com/MichaelFYang/far_planner)
 
