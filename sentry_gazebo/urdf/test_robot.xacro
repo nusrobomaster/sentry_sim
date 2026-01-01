@@ -17,8 +17,6 @@
   <xacro:arg name="xyz" default="0.12 0.0 0.175" />
   <xacro:arg name="rpy" default="0 0 0" />
 
-  <link name="dummy"/>
-
   <link name="base_link">
     <visual>
       <geometry>
@@ -37,11 +35,6 @@
     </collision>
     <xacro:default_inertial mass="8.2"/>
   </link>
-
-  <joint name="dummy_joint" type="fixed">
-     <parent link="dummy"/>
-     <child link="base_link"/>
-  </joint>
 
   <link name="wheel_1">
     <visual>
@@ -198,14 +191,18 @@
     <!-- can be changed to libignition-gazebo-mecanum-drive-system.so for mecanum drive, there's even a wheel-slip plugin -->
     <plugin filename="libignition-gazebo-diff-drive-system.so"
             name="ignition::gazebo::systems::DiffDrive">
-        <left_joint>base_to_wheel1</left_joint>
-        <left_joint>base_to_wheel2</left_joint>
+        <left_joint>base_to_wheel1</left_joint> <left_joint>base_to_wheel2</left_joint>
         <right_joint>base_to_wheel3</right_joint>
         <right_joint>base_to_wheel4</right_joint>
         <wheel_separation>1.2</wheel_separation>
         <wheel_radius>${radius_wheel}</wheel_radius>
-        <odom_publish_frequency>1</odom_publish_frequency>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <use_sim_time>true</use_sim_time>
         <topic>cmd_vel</topic>
+        <odom_topic>odom</odom_topic> 
+        <tf_topic>/tf</tf_topic>
+        <frame_id>odom</frame_id>
+        <child_frame_id>base_link</child_frame_id>
     </plugin>
     <!-- Moving Forward with Arrow Key Control plugin -->
     <plugin filename="libignition-gazebo-triggered-publisher-system.so"
@@ -284,23 +281,29 @@
   <!-- topic name in ign topic -l: /world/default/model/testbot/link/dummy/sensor/lidar_sensor/scan -->
   <gazebo reference="imu_link"> <!-- imu_link has a more broad horizon-->
     <sensor type="gpu_ray" name="lidar_sensor">
+      <ignition_frame_id>imu_link</ignition_frame_id>
+      
       <topic>/scan</topic>
       <pose>0 0 0 0 0 0</pose>
       <visualize>true</visualize>
-      <update_rate>200</update_rate>
+      <update_rate>20</update_rate>
       <ray>
         <scan>
           <horizontal>
-            <samples>50</samples> <!-- on my computer, number of rays and update rate should not be too much, otherwise computer freezes-->
+            <samples>100</samples> <!-- on my computer, number of rays and update rate should not be too much, otherwise computer freezes-->
             <resolution>1</resolution>
             <min_angle>-1.5708</min_angle>
             <max_angle>1.5708</max_angle>
           </horizontal>
           <vertical>
-            <samples>50</samples>
+            <!-- <samples>50</samples>
             <resolution>1</resolution>
             <min_angle>-1.5708</min_angle>
-            <max_angle>1.5708</max_angle>
+            <max_angle>1.5708</max_angle> -->
+            <samples>1</samples>
+            <resolution>1</resolution>
+            <min_angle>0</min_angle>
+            <max_angle>0</max_angle>
           </vertical>
         </scan>
         <range>

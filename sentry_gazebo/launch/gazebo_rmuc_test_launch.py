@@ -93,7 +93,7 @@ def generate_launch_description():
         executable='robot_state_publisher',
         name='robot_state_publisher',
         parameters=[{
-            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'use_sim_time': True,
             'robot_description': robot_desc, # 机器人描述
             'publish_frequency': 30.0
         }],
@@ -128,23 +128,28 @@ def generate_launch_description():
     # Bridge ROS topics and Gazebo messages for establishing communication
     bridge = Node(
         package='ros_gz_bridge',
-        name='ros_gz_bridge',
         executable='parameter_bridge',
-        arguments=[ # bridge topics,now use ros2 topic echo /your_topic to check
-            'cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist', # bridge cmd_vel topic
-            '/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU', # bridge imu topic
-            '/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan' # bridge scan topic
+        name='ros_gz_bridge',
+        arguments=[
+            '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
+            '/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU',
+            '/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+            '/odom@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
+            '/tf@tf2_msgs/msg/TFMessage@ignition.msgs.Pose_V',
+            '/world/default/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock'
         ],
+        remappings=[
+            ('/world/default/clock', '/clock')
+        ],
+        parameters=[{
+            'use_sim_time': True,
+            'qos_overrides./scan.publisher.reliability': 'reliable',
+            'qos_overrides./tf.publisher.reliability': 'reliable',
+            'qos_overrides./odom.publisher.reliability': 'reliable'
+        }],
         output='screen'
     )
 
-    # # Static transform publisher for map to odom
-    # Node(
-    #     package='tf2_ros',
-    #     executable='static_transform_publisher',
-    #     name='map2odom',
-    #     arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom', '1000']
-    # ),
     return LaunchDescription(
         argument_declarations + [
         gz_sim,

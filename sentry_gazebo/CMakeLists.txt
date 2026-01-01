@@ -150,6 +150,11 @@ include_directories(
 #############
 
 install(
+  DIRECTORY launch config urdf worlds
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(
   DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )

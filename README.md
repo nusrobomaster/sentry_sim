@@ -3,86 +3,61 @@
 Sentry simulation on gazebo. Modified form the original forked library to make it compatiable for ROS 2 Humble with ignition gazebo fortress.
 
 ## Progress
-Currently able to launch RMUC arena in gazebo and spawn the robot from xacro file (arbitrary model) with correct physics. **Next goal is to debug code for controlling the sentry in the simulation with key controls.**
+* Able to launch the RMUC arena in Gazebo Fortress
+* Robot is spawned from a Xacro/URDF model with correct physics
 
-Latest test launching from `gazebo_rmuc_test_launch.py` with urdf from `test_robot.xacro`.
+Robot can be moved:
+* Manually using keyboard teleoperation
+* Autonomously using RViz2 2D Goal Pose
 
-## Launch files
-Simulation launch files are located in `sentry_gazebo`. 
+Latest testing is done using:
+* Launch file: gazebo_rmuc_test_launch.py
+* Robot description: test_robot.xacro
+
+## Build
+```SHELL
+# Source ROS 2 environment
+source /opt/ros/humble/setup.bash
+
+# Build only the simulation package
+colcon build --packages-select sentry_gazebo --symlink-install
+source install/setup.bash
+```
 
 ## Launch Simulation
+Start Gazebo Fortress and spawn the robot:
 ```SHELL
-./build_packages.sh
-source install/setup.bash
 ros2 launch sentry_gazebo gazebo_rmuc_test_launch.py
 ```
 
-## Packages
-Work in progress...
-
-## Dependencies
-Set up gazebo fortress (might need to install binaries first)
+## SLAM and Navigation
+Start SLAM Toolbox and navigation nodes:
 ```SHELL
-sudo apt-get install ros-humble-ros-gz
-sudo apt-get install ros-humble-ros-ign-bridge
+ros2 launch sentry_gazebo mapping_nav_launch.py use_sim_time:=true
 ```
 
-[autonomous_exploration_development_environment](https://github.com/HongbiaoZ/autonomous_exploration_development_environment)
+## Visualisation (RViz2)
+Run RViz2 with simulation time enabled:
+```SHELL
+ros2 run rviz2 rviz2 --ros-args -p use_sim_time:=true
+```
+Fixed Frame: Set to map. Displays: Add Grid, TF, RobotModel, LaserScan (Topic: /scan), Map (Topic: /map), and Path (Topic: /plan).
+* Use 2D Goal Pose to move the robot autonomously
 
-## References
-[pb_rm_simulation](https://github.com/LihanChen2004/pb_rm_simulation) - Another helpful sentry simulation package developed in ROS 2.
+## Manual Control
+Optional keyboard teleoperation:
+```SHELL
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
 
+## Dependencies
+Install Gazebo Fortress, Navigation2, and SLAM tools
+```SHELL
+sudo apt-get install ros-humble-ros-gz \
+                     ros-humble-ros-gz-bridge \
+                     ros-humble-slam-toolbox \
+                     ros-humble-navigation2 \
+                     ros-humble-nav2-bringup \
+                     ros-humble-teleop-twist-keyboard
+```
 
-## End Goal
-This is an idea of what the simulation should ultimately be able to do based on the original project.
-
-https://github.com/66Lau/sentry_sim/assets/95697190/59206443-fcca-4397-8dfb-3bf6a5fa4ec9
-
-Some files in `autonomous_exploration_development_environment`, `far_planner` package are modified.
-
-<!-- https://github.com/66Lau/sentry_sim/assets/95697190/a8513286-9576-4109-98dd-e6898c791bb9
-
-https://github.com/66Lau/sentry_sim/assets/95697190/b711e6e7-a677-423d-bf40-183172f097cb -->
-
-<div align="center"><img src="img/slope_img.png" width=90% /></div>
-<div align="center">Uphill</div>
-<br>
-
-<div align="center"><img src="img/sim_img.png" width=90% /></div>
-<div align="center">Navigation in bumopy road</div>
-<br>
-
-<div align="center"><img src="img/far_planner.png" width=90% /></div>
-<div align="center">Global navigation(far_planner)</div>
-<br>
-
-## Q&A
-
-
-<div align="center"><img src="img/problem1.png" width=90% /></div>
-<div align="center">Drop</div>
-<br>
-
-When lidar are not able to scan the ground below the cliff, the system would grant cliff passable. It could be solved by set "noDataObstacle" to true.
-
-<!-- 
-调参理解
-
-local_planner.launch 中的 twoWayDrive 在rm场景下没有必要允许双头运行，有时候会导致摇摆
-terrain_analysis中的 useSorting 打开比较好，因为那样子对于地面的划分就不会过于依靠绝对高度，而是会在已知点云中按照高度排序，划分地面层
-terrain_analysis中的 maxGroundLift 在对点云分类到障碍物或者地面起作用，这个值越大，能上越陡的坡
-
-第一套：原始参数
-第二套：twoWayDrive->false
-        minRelZ->-2.5
-        maxGroundLift->2.0
-        useSorting->true
-TODO:
-使用普通的A*的全局路径规划，然后base_planner使用cmu的框架，目前还差从path中提取waypoint
-
-
-roslaunch sentry_global_planner sentry_global_planner.launch 
-
-
-
- -->
