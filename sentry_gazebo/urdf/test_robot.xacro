@@ -5,11 +5,12 @@
   <xacro:property name="length_wheel" value="0.05" />
   <xacro:property name="radius_wheel" value="0.06" />
   <xacro:property name="PI" value="3.1415926"/>
-  <xacro:macro name="default_inertial" params="mass">
+  <xacro:macro name="wheel_inertial" params="mass">
     <inertial>
       <mass value="${mass}" />
-      <inertia ixx="0.01" ixy="0.0" ixz="0.0"
-                    iyy="0.01" iyz="0.0" izz="0.01" />
+      <inertia ixx="0.00055" ixy="0.0" ixz="0.0"
+               iyy="0.00055" iyz="0.0" 
+               izz="0.0009" />
     </inertial>
   </xacro:macro>
 
@@ -33,7 +34,12 @@
       </geometry>
       <origin rpy="0 0 ${PI/2}" xyz="0 0 0.05"/>
     </collision>
-    <xacro:default_inertial mass="8.2"/>
+    <inertial>
+      <mass value="8.2"/>
+      <inertia ixx="0.0683" ixy="0" ixz="0" 
+               iyy="0.0342" iyz="0" 
+               izz="0.0888" />
+    </inertial>
   </link>
 
   <link name="wheel_1">
@@ -53,7 +59,7 @@
     </collision>
     <mu1>0.5</mu1>
     <mu2>0.5</mu2>
-    <xacro:default_inertial mass="0.5"/>
+    <xacro:wheel_inertial mass="0.5"/>
   </link>
 
   <link name="wheel_2">
@@ -71,7 +77,7 @@
     </collision>
     <mu1>0.5</mu1>
     <mu2>0.5</mu2>
-    <xacro:default_inertial mass="0.5"/>
+    <xacro:wheel_inertial mass="0.5"/>
   </link>
 
   <link name="wheel_3">
@@ -89,7 +95,7 @@
     </collision>
     <mu1>0.5</mu1>
     <mu2>0.5</mu2>
-    <xacro:default_inertial mass="0.5"/>
+    <xacro:wheel_inertial mass="0.5"/>
   </link>
 
   <link name="wheel_4">
@@ -107,7 +113,7 @@
     </collision>
     <mu1>0.5</mu1>
     <mu2>0.5</mu2>
-    <xacro:default_inertial mass="0.5"/>
+    <xacro:wheel_inertial mass="0.5"/>
   </link>
 
   <joint name="base_to_wheel1" type="continuous">
@@ -194,7 +200,7 @@
         <left_joint>base_to_wheel1</left_joint> <left_joint>base_to_wheel2</left_joint>
         <right_joint>base_to_wheel3</right_joint>
         <right_joint>base_to_wheel4</right_joint>
-        <wheel_separation>1.2</wheel_separation>
+        <wheel_separation>0.45</wheel_separation>
         <wheel_radius>${radius_wheel}</wheel_radius>
         <odom_publish_frequency>50</odom_publish_frequency>
         <use_sim_time>true</use_sim_time>
@@ -290,7 +296,7 @@
       <ray>
         <scan>
           <horizontal>
-            <samples>100</samples> <!-- on my computer, number of rays and update rate should not be too much, otherwise computer freezes-->
+            <samples>360</samples> <!-- on my computer, number of rays and update rate should not be too much, otherwise computer freezes-->
             <resolution>1</resolution>
             <min_angle>-1.5708</min_angle>
             <max_angle>1.5708</max_angle>
