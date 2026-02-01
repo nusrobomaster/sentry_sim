@@ -57,8 +57,8 @@
         <cylinder length="${length_wheel}" radius="${radius_wheel}"/>
       </geometry>
     </collision>
-    <mu1>0.5</mu1>
-    <mu2>0.5</mu2>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
     <xacro:wheel_inertial mass="0.5"/>
   </link>
 
@@ -75,8 +75,8 @@
         <cylinder length="${length_wheel}" radius="${radius_wheel}"/>
       </geometry>
     </collision>
-    <mu1>0.5</mu1>
-    <mu2>0.5</mu2>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
     <xacro:wheel_inertial mass="0.5"/>
   </link>
 
@@ -93,8 +93,8 @@
         <cylinder length="${length_wheel}" radius="${radius_wheel}"/>
       </geometry>
     </collision>
-    <mu1>0.5</mu1>
-    <mu2>0.5</mu2>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
     <xacro:wheel_inertial mass="0.5"/>
   </link>
 
@@ -111,8 +111,8 @@
         <cylinder length="${length_wheel}" radius="${radius_wheel}"/>
       </geometry>
     </collision>
-    <mu1>0.5</mu1>
-    <mu2>0.5</mu2>
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
     <xacro:wheel_inertial mass="0.5"/>
   </link>
 
@@ -200,7 +200,7 @@
         <left_joint>base_to_wheel1</left_joint> <left_joint>base_to_wheel2</left_joint>
         <right_joint>base_to_wheel3</right_joint>
         <right_joint>base_to_wheel4</right_joint>
-        <wheel_separation>0.45</wheel_separation>
+        <wheel_separation>0.39</wheel_separation>
         <wheel_radius>${radius_wheel}</wheel_radius>
         <odom_publish_frequency>50</odom_publish_frequency>
         <use_sim_time>true</use_sim_time>

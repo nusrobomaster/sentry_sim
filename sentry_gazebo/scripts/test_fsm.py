@@ -1,0 +1,412 @@
+import rclpy
+import threading
+from enum import Enum
+
+from robot_navigator import BasicNavigator, NavigationResult
+
+
+import time
+import math
+
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from std_msgs.msg import UInt8, UInt16MultiArray, Bool, Float32, String, Int8
+from nav2_msgs.action import NavigateToPose, Spin
+from rclpy.task import Future
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped 
+from rclpy.duration import Duration 
+from threading import Timer
+
+# Enums
+class State(Enum):
+    InitIdleState = 0
+    SurveillingState = 1
+    NavigatingState = 2
+    ShootingState = 3
+
+class Status(Enum):
+    InitIdleStatus = 0
+    LowHealthStatus = 1
+    CombatStatus = 2
+
+class BehaviorMode(Enum): # Left Trigger
+    UndefinedMode = 0
+    SeriousMode = 1    # Competition
+    CasualMode = 3      # Idle
+    IdleMode = 2   # Testing
+
+
+class RobotNode(Node):
+
+    def __init__(self):
+        super().__init__('sentry_fsm') 
+
+        self.get_logger().info('Sentry FSM Node Started')
+
+        # State Publisher
+        self.state_pub = self.create_publisher(String, '/sentry/fsm_state', 10)
+        
+        # Referee Override
+        self.referee_override_sub = self.create_subscription(
+            Int8, '/referee/override', self.referee_override_callback, 10)
+
+        self.left_trigger_subscriber = self.create_subscription(
+            UInt8, 'sen/remote_left_trigger', self.left_trigger_callback, 10)
+
+        self.competition_status_sub = self.create_subscription(
+            UInt16MultiArray, 'sen/competition_status', self.competition_status_callback, 10)
+        
+        self.occupation_status_sub = self.create_subscription(
+            UInt16MultiArray, 'sen/occupation_status', self.occupation_status_callback, 10)
+        
+        self.target_detected_sub = self.create_subscription(
+            Bool, '/cv_detected', self.detected_opponent_callback, 10)
+
+        self.cur_pose_sub = self.create_subscription(
+            PoseWithCovarianceStamped, '/pose', self.cur_pose_callback, 10)
+        
+        # target_dist sub
+        self.target_dist = self.create_subscription(
+            Float32, '/cv_dist', self.target_dist_callback, 10)
+        
+        self.in_supply_sub = self.create_subscription(
+            Bool, 'sen/in_supply', self.in_supply_callback, 10)
+        
+        self.in_central_sub = self.create_subscription(
+            Bool, 'sen/in_central', self.in_central_callback, 10)
+
+        self.spin_publisher_ = self.create_publisher(Bool, 'sen/chassis_spin_cmd', 10)
+        self.shoot_publisher_ = self.create_publisher(Bool,'sen/shoot_cmd', 10)
+        self.surveil_publisher_ = self.create_publisher(Bool,'sen/surveil_cmd', 10)
+        self.aim_publisher_ = self.create_publisher(Bool, 'sen/aim_cmd', 10)
+        self.navigating_publisher_ = self.create_publisher(Bool, 'sen/is_navigating', 10)
+
+        ################################## TUNABLE CONSTANTS ###############################
+        self.GAP = 0.5 # in m
+        self.LOWHP = 100 # Threshold for low health
+        self.MATCH_TIME = 300 # Total match time
+        self.STANDBY_TIME = 0 # Wait time upon match start before moving
+
+        # !!! REMINDER: Update these with your RViz "Publish Point" values !!!
+        self.CENTRAL_ZONE_X = 6.32  
+        self.CENTRAL_ZONE_Y = 4.19 
+        self.CENTRAL_ZONE_Z = 0.0 
+        self.CENTRAL_ORI_Z = -0.707
+        self.CENTRAL_ZONE_W = 0.707
+
+        self.SUPPLY_ZONE_X = 11.16
+        self.SUPPLY_ZONE_Y = 1.08
+        self.SUPPLY_ZONE_Z = 0.0 
+        self.SUPPLY_ORI_Z = 0.707
+        self.SUPPLY_ZONE_W = 0.707
+
+        self.costmap_cleanup_interval = 5.0  # Time in seconds
+        self.timer = None
+
+        self.is_navigating = 0
+        # Navigation timeout tracking
+        self.nav_start_time = None
+        self.nav_timeout = 120.0 # Seconds (increased temporarily)
+        
+        # Referee system data
+        self.game_progress = 0
+        self.time_left = 0
+        self.robot_id = 0
+        self.current_hp = 500 # Default to alive
+        self.red_hero_hp = 0
+        self.red_standard_hp = 0
+        self.red_sentry_hp = 0
+        self.blue_hero_hp = 0
+        self.blue_standard_hp = 0
+        self.blue_sentry_hp = 0
+        self.in_supply = False
+        self.in_central = False
+
+        self.opponent_detected = 0
+        self.status_transition = 0 
+        self.target_dist = 0
+        
+        self.current_state = State.InitIdleState
+        self.current_status = Status.InitIdleStatus
+        self.prev_status = Status.InitIdleStatus
+        self.current_mode = BehaviorMode.IdleMode
+        self.cur_pose = PoseStamped()
+        self.cur_pose.header.frame_id = 'map'
+        self.target_dist = 0
+        self.target_pose = PoseStamped()
+        self.target_pose.header.frame_id = 'map'
+        self.nav_goal_msg = PoseStamped()
+        self.nav_goal_msg.header.frame_id = 'map'
+
+        self.navigator = BasicNavigator()
+        self.navigator.lifecycleStartup() 
+        
+        self.navigator.waitUntilNav2Active()
+
+        self.navigator.clearAllCostmaps()
+
+        self.clear_costmap_counter = 0
+
+        self.behavior_thread = threading.Thread(target=self.behavior_loop)
+        self.stop_thread = threading.Event()
+        self.behavior_thread.start()
+        self.init_clean_costmaps()
+
+        self.sentry_ready = False
+        self.get_logger().info('FSM Initialized - Waiting for Game Start')
+
+    def __del__(self):
+        self.stop_thread.set()
+        if self.behavior_thread.is_alive():
+            self.behavior_thread.join()
+    
+    # Callback for Manual Override
+    def referee_override_callback(self, msg):
+        self.get_logger().info(f'OVERRIDE: Setting game_progress to {msg.data}')
+        self.game_progress = msg.data
+        if self.game_progress == 4: # GAME_RUNNING
+            self.current_mode = BehaviorMode.SeriousMode 
+            self.time_left = 300 
+            self.current_hp = 500
+        elif self.game_progress == 0:
+            self.current_mode = BehaviorMode.IdleMode
+
+    def init_clean_costmaps(self):
+        self.timer = Timer(self.costmap_cleanup_interval, self.navigator.clearAllCostmaps)
+        # self.timer.start()
+
+    def dist_xy_decomp(self, dist):
+        quat_x = self.cur_pose.pose.orientation.x
+        quat_y = self.cur_pose.pose.orientation.y
+        quat_z = self.cur_pose.pose.orientation.z
+        quat_w = self.cur_pose.pose.orientation.w
+        yaw = math.atan2(2*(quat_w*quat_z + quat_x*quat_y), 
+                     1 - 2*(quat_y*quat_y + quat_z*quat_z))
+        
+        dist_x = dist * math.cos(yaw)
+        dist_y = dist * math.sin(yaw)
+    
+        return dist_x, dist_y
+
+    def left_trigger_callback(self, msg):
+        self.current_mode = BehaviorMode(msg.data)
+        
+    def competition_status_callback(self, msg):
+        self.game_progress = msg.data[0]
+        self.time_left = msg.data[1]
+        self.robot_id = msg.data[2]
+        self.current_hp = msg.data[3]
+        self.red_hero_hp = msg.data[4]
+        self.red_standard_hp = msg.data[5]
+        self.red_sentry_hp = msg.data[6]
+        self.blue_hero_hp = msg.data[7]
+        self.blue_standard_hp = msg.data[8]
+        self.blue_sentry_hp = msg.data[9]
+
+    def occupation_status_callback(self, msg):
+        self.in_supply = msg.data[0]
+        self.in_central = msg.data[1]
+
+    def cur_pose_callback(self, msg):
+        # self.cur_pose = msg.data
+        self.cur_pose = PoseStamped()
+        self.cur_pose.header = msg.header
+        self.cur_pose.pose = msg.pose.pose
+        
+    def detected_opponent_callback(self, msg):
+        self.opponent_detected = msg.data
+
+    def target_dist_callback(self, msg):
+        self.target_dist = msg.data
+
+    def in_supply_callback(self, msg):
+        self.in_supply = msg.data
+
+    def in_central_callback(self, msg):
+        self.in_central = msg.data
+
+
+    def behavior_loop(self):
+        rate = self.create_rate(10)
+        while rclpy.ok() and not self.stop_thread.is_set():
+            
+            # Publish State (Debug)
+            state_msg = String()
+            state_msg.data = f"State: {self.current_state.name} | HP: {self.current_hp}"
+            self.state_pub.publish(state_msg)
+
+            # Publish System Commands
+            self.send_spin_cond()
+            self.send_aim_cond()
+            self.send_surveil_cond()
+            self.send_nav_cond()
+            self.send_shoot_cond()
+
+            # Update Status
+            self.prev_status = self.current_status
+
+            if self.game_progress != 4 or self.time_left > (self.MATCH_TIME - self.STANDBY_TIME) or self.current_mode == BehaviorMode.IdleMode:
+                self.current_status = Status.InitIdleStatus
+            elif self.current_hp <= self.LOWHP:
+                self.current_status = Status.LowHealthStatus
+            else:
+                self.current_status = Status.CombatStatus
+            
+            # INTERRUPT: ENEMY SPOTTED
+            if self.opponent_detected and self.current_status != Status.InitIdleStatus:
+                if self.current_state == State.NavigatingState:
+                    self.get_logger().warn('INTERRUPT: Enemy Spotted! ABORTING NAVIGATION.')
+                    self.navigator.cancelNav()
+                self.current_state = State.ShootingState
+
+            # INTERRUPT: STATUS CHANGED
+            elif self.current_state == State.NavigatingState and self.current_status != self.prev_status:
+                self.get_logger().warn('INTERRUPT: Status Changed! ABORTING NAV to Reroute.')
+                self.navigator.cancelNav()
+                self.current_state = State.SurveillingState # Drop to idle so next loop picks new goal
+
+            # STATE TRANSITIONS
+            if self.current_state != State.NavigatingState and self.current_state != State.ShootingState:
+                # LOW HP -> GO SUPPLY
+                if self.current_status == Status.LowHealthStatus:
+                    if not self.in_supply:
+                        self.get_logger().info('Low Health -> Routing to Supply')
+                        self.set_goal()
+                        self.current_state = State.NavigatingState
+                
+                # COMBAT -> GO CENTRAL
+                elif self.current_status == Status.CombatStatus and self.current_mode == BehaviorMode.SeriousMode:
+                    if not self.in_central:
+                        self.get_logger().info('Resuming Patrol -> Routing to Central')
+                        self.set_goal()
+                        self.current_state = State.NavigatingState
+
+            # STATE EXECUTION
+
+            if self.current_state == State.InitIdleState:
+                if not self.navigator.isNavComplete():
+                    self.navigator.cancelNav()
+
+            elif self.current_state == State.SurveillingState:
+                pass
+
+            elif self.current_state == State.NavigatingState:
+                # Check for Timeout
+                if self.nav_start_time is not None:
+                    if (time.time() - self.nav_start_time) > self.nav_timeout:
+                        self.get_logger().warn('Navigation Timeout! Cancelling.')
+                        self.navigator.cancelNav()
+                        self.current_state = State.SurveillingState
+                
+                # Check for Completion
+                if self.navigator.isNavComplete():
+                    result = self.navigator.getResult()
+                    if result == NavigationResult.SUCCEEDED:
+                        self.get_logger().info("Navigation Complete.")
+                        if self.current_status == Status.LowHealthStatus:
+                             self.in_supply = True # Assumption for simulation
+                        else:
+                             self.in_central = True
+                    
+                    self.current_state = State.SurveillingState
+
+            elif self.current_state == State.ShootingState:
+                # If enemy disappears, go back to patrolling
+                if not self.opponent_detected:
+                    self.get_logger().info("Enemy lost. Resuming surveillance.")
+                    self.current_state = State.SurveillingState
+
+            rate.sleep()
+
+    def set_goal(self):
+
+        if self.current_status == Status.LowHealthStatus:
+            # Set supply zone goal
+            self.nav_goal_msg.header.stamp = self.navigator.get_clock().now().to_msg()
+            self.nav_goal_msg.pose.position.x = self.SUPPLY_ZONE_X
+            self.nav_goal_msg.pose.position.y = self.SUPPLY_ZONE_Y
+            self.nav_goal_msg.pose.position.z = self.SUPPLY_ZONE_Z
+            self.nav_goal_msg.pose.orientation.z = self.SUPPLY_ORI_Z
+            self.nav_goal_msg.pose.orientation.w = self.SUPPLY_ZONE_W
+            
+        else:
+            # Set central zone goal
+            self.nav_goal_msg.header.stamp = self.navigator.get_clock().now().to_msg()
+            self.nav_goal_msg.pose.position.x = self.CENTRAL_ZONE_X
+            self.nav_goal_msg.pose.position.y = self.CENTRAL_ZONE_Y
+            self.nav_goal_msg.pose.position.z = self.CENTRAL_ZONE_Z
+            self.nav_goal_msg.pose.orientation.z = self.CENTRAL_ORI_Z
+            self.nav_goal_msg.pose.orientation.w = self.CENTRAL_ZONE_W
+
+        if self.navigator.isNavComplete():
+            self.nav_start_time = time.time()
+            self.send_nav_goal()
+
+    def send_nav_goal(self):
+        self.send_goal_future = self.navigator.goToPose(self.nav_goal_msg)
+        self.prev_state = self.current_state
+        self.is_navigating = 1
+        self.get_logger().info('Nav Goal Sent')
+
+    def send_spin_cond(self):
+        spin_bool = Bool()
+        spin_bool.data = (self.current_state == State.SurveillingState) or (self.current_state == State.ShootingState)
+        self.spin_publisher_.publish(spin_bool)
+
+    def send_aim_cond(self):
+        aim_bool = Bool()
+        aim_bool.data = (self.current_state == State.SurveillingState) or (self.current_state == State.ShootingState)
+        self.aim_publisher_.publish(aim_bool)
+
+    def send_surveil_cond(self):
+        surveil_bool = Bool()
+        surveil_bool.data = (self.current_state == State.SurveillingState)
+        self.surveil_publisher_.publish(surveil_bool)
+
+    def send_nav_cond(self):
+        nav_bool = Bool()
+        nav_bool.data = (self.current_state == State.NavigatingState)
+        self.navigating_publisher_.publish(nav_bool)
+        
+    def send_shoot_cond(self):
+        shoot_bool = Bool()
+        shoot_bool.data = (self.current_state == State.ShootingState)
+        self.shoot_publisher_.publish(shoot_bool)
+
+    def get_result_callback(self, result):
+        self.nav_start_time = None
+
+        if result == NavigationResult.SUCCEEDED:
+            self.get_logger().info("Successfully navigated to pose")
+            self.get_logger().info("Start spinning")
+            self.is_navigating = 0 
+            self.dur_nav = 0
+
+        elif result == NavigationResult.CANCELED:
+            self.is_navigating = 0 
+            self.dur_nav = 0 
+            self.get_logger().info("Navigation to pose canceled")
+        elif result == NavigationResult.FAILED:
+            self.is_navigating = 0
+            self.dur_nav = 0  
+
+def main(args=None):
+    rclpy.init()
+    print("Starting Sentry FSM")
+    node = RobotNode()
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+    executor.add_node(node.navigator)
+
+    try:
+        executor.spin()
+    finally:
+        node.destroy_node()
+        node.navigator.destroy_node()
+        node.timer.cancel()
+        rclpy.shutdown()
+ 
+if __name__ == '__main__':
+  main()
