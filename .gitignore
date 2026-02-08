@@ -1,9 +1,17 @@
+# Standard ROS 2 Build Artifacts
 build/
-log/*.txt
-Log/*.txt
-Log/*.csv
-Log/*.pdf
-log/
-.pcd
 install/
+log/
+.colcon/
+
+# FAST-LIO & Logs
+Log/
+PCD/
+*.csv
+*.txt
+
+# Python & IDE Junk
 __pycache__/
+*.pyc
+.vscode/
+.DS_Store

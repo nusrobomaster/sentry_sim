@@ -1,83 +1,130 @@
 # sentry_sim
 
-Sentry simulation on gazebo. Modified from the original forked library to make it compatible for ROS 2 Humble with Ignition Gazebo Fortress.
+Sentry simulation on Gazebo Fortress with ROS 2 Humble. Features skid-steer kinematics, autonomous navigation, and 3D LiDAR-inertial odometry.
 
-## Integrations & Features
+## Features
 
 **Simulation & Physics**
-* Integrated skid-steer kinematics for 4-wheel drive.
-* Implemented Z-offset spawning to prevent collision mesh clipping.
+* 4-wheel skid-steer drive with differential control
+* 3D LiDAR sensor (Livox Mid-360 simulation via `gpu_lidar`)
+* IMU sensor integration
+
+**Localization & Mapping**
+* FAST-LIO for real-time LiDAR-inertial odometry and mapping
+* Navigation2 with AMCL localization
+* SLAM Toolbox support
 
 **Autonomous Navigation**
-* Integrated Navigation2 (Nav2) with AMCL localization.
-* Configured high-frequency map updates and increased odometry noise parameters to handle skid-steer slip.
+* Finite State Machine (FSM) for autonomous behavior
+* Interrupt logic for enemy detection and low-HP triggers
+* Remote command interface for manual control
 
-**Logic & Control**
-* **Finite State Machine (FSM):** Integrated test_fsm into the simulation.
-* **Interrupt Logic:** Navigation tasks are now interruptible by enemy detection or low-HP triggers.
-* **Remote Interface:** Added a command node for manual state triggers (Start, Retreat, Engage).
+## Dependencies
+
+### Core ROS 2 Packages
+```bash
+sudo apt install ros-humble-ros-gz \
+                 ros-humble-ros-gz-bridge \
+                 ros-humble-navigation2 \
+                 ros-humble-nav2-bringup \
+                 ros-humble-slam-toolbox \
+                 ros-humble-teleop-twist-keyboard
+```
+
+### FAST-LIO
+Included in this repo under `./FAST_LIO/`. See [upstream repository](https://github.com/hku-mars/FAST_LIO) for details.
+
+**Note:** Code has been modified to work with simulated PointCloud2 data.
+
+### Livox Drivers
+- [Livox-SDK2](https://github.com/Livox-SDK/Livox-SDK2)
+- [livox_ros_driver2](https://github.com/Livox-SDK/livox_ros_driver2)
 
 ## Build
 
 ```bash
-# Source ROS 2 environment
+cd ~/sentry_sim
 source /opt/ros/humble/setup.bash
-
-# Build the package
-colcon build --symlink-install
+colcon build
 source install/setup.bash
 ```
 
 ## Usage
-**Note:** Remember to source both the ROS 2 environment and your workspace in every new terminal.
+
+**Note:** Source your workspace in every new terminal:
 ```bash
-cd sentry_sim
+cd ~/sentry_sim
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 ```
 
-### 1. Visualisation
-Launches RViz with simulation time enabled.
-```bash
-ros2 run rviz2 rviz2 --ros-args -p use_sim_time:=true
-```
-Fixed Frame: Set to map. 
-Displays: Add Grid, TF, LaserScan (Topic: /scan), Map (Topic: /map), Map (again) (Topic: /global_costmap/costmap) and Path (Topic: /plan).
-* Note: If you want to move the robot autonomously (using 2D Goal Post) or manually (using teleop_twist_keyboard), turn off the FSM first.
+### 1. Simulation Only
 
-### 2. Simulation & Navigation
-Launches Gazebo Fortress, spawns the robot, and initializes Nav2/AMCL.
 ```bash
 ros2 launch sentry_gazebo gazebo_complete_launch.py
 ```
-Use 2D Pose Estimate in RViz to align the robot with where it's meant to be positioned on the map.
 
-### 3. Finite State Machine
-Starts the autonomous decision-making node.
+Launches Gazebo with robot, sensors, and ros_gz_bridge.
+
+### 2. Mapping with FAST-LIO
+
 ```bash
-python3 sentry_gazebo/scripts/test_fsm.py
+# Terminal 1: Simulation
+ros2 launch sentry_gazebo gazebo_complete_launch.py
+
+# Terminal 2: FAST-LIO
+ros2 launch fast_lio mapping.launch.py
+
+# Terminal 3: Manual control
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
-### 4. Remote Controller
-Starts the command interface for testing FSM transitions.
+Drive around to build the map.
+
+### 3. Navigation with Nav2
+
 ```bash
-python3 sentry_gazebo/scripts/remote.py
+# Terminal 1: Simulation
+ros2 launch sentry_gazebo gazebo_complete_launch.py
+
+# Terminal 2: Navigation stack
+ros2 launch sentry_nav mapping_nav_launch.py
+
+# Terminal 3: RViz
+ros2 run rviz2 rviz2 --ros-args -p use_sim_time:=true
 ```
 
-Remote Commands:
-* 1: Start Match (Navigate to Central Zone)
-* 2: Retreat (Navigate to Supply Zone)
-* 3: Enemy Detected (Interrupt navigation, stop, and aim)
-* 4: Clear Enemy (Resume previous task)
+**RViz Setup:**
+- Fixed Frame: `map`
+- Add Map: `/map`
+- Add LaserScan: `/scan`
+- Add Path: `/plan`
 
-## Dependencies
-Install Gazebo Fortress, Navigation2, and SLAM tools
+Use **2D Pose Estimate** to set initial pose, then **2D Goal Pose** for navigation.
+
+### 4. Autonomous Behavior (FSM)
+
 ```bash
-sudo apt-get install ros-humble-ros-gz \
-                     ros-humble-ros-gz-bridge \
-                     ros-humble-slam-toolbox \
-                     ros-humble-navigation2 \
-                     ros-humble-nav2-bringup \
-                     ros-humble-teleop-twist-keyboard
+# Terminal 1: Simulation
+ros2 launch sentry_gazebo gazebo_complete_launch.py
+
+# Terminal 2: Nav2
+ros2 launch sentry_nav mapping_nav_launch.py
+
+# Terminal 3: RViz
+ros2 run rviz2 rviz2 --ros-args -p use_sim_time:=true
+
+# Terminal 4: FSM
+python3 src/sentry_behavior/scripts/test_fsm.py
+
+# Terminal 5: Remote control
+python3 src/sentry_behavior/scripts/remote.py
 ```
 
+**Remote Commands:**
+- `1`: Start Match (Navigate to Central Zone)
+- `2`: Retreat (Navigate to Supply Zone)  
+- `3`: Enemy Detected (Interrupt & aim)
+- `4`: Clear Enemy (Resume task)
+
+**Note:** FSM takes control of navigation - disable it for manual driving.

@@ -13,7 +13,7 @@ def generate_launch_description():
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
     nav2_bringup_dir = get_package_share_directory('nav2_bringup')
 
-    map_file_path = '/sentry_gazebo/map/rmul_map.yaml'
+    map_file_path = '/home/dinvsh/sentry_sim/sentry_gazebo/map/rmul_map.yaml'
     
     nav2_params_file = os.path.join(pkg_project, 'config', 'nav2', 'nav2_sentry.yaml')
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
@@ -67,21 +67,22 @@ def generate_launch_description():
     )
 
     bridge = Node(
-        package='ros_gz_bridge', executable='parameter_bridge', name='ros_gz_bridge',
+        package='ros_gz_bridge', 
+        executable='parameter_bridge', 
+        name='ros_gz_bridge',
         arguments=[
             '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
             '/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU',
-            '/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+            '/lidar_points/points@sensor_msgs/msg/PointCloud2@ignition.msgs.PointCloudPacked',
             '/odom@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
             '/tf@tf2_msgs/msg/TFMessage@ignition.msgs.Pose_V',
             '/world/default/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock'
         ],
-        remappings=[('/world/default/clock', '/clock')],
+        remappings=[
+            ('/world/default/clock', '/clock'),
+        ],
         parameters=[{
             'use_sim_time': True,
-            'qos_overrides./scan.publisher.reliability': 'reliable',
-            'qos_overrides./tf.publisher.reliability': 'reliable',
-            'qos_overrides./odom.publisher.reliability': 'reliable'
         }],
         output='screen'
     )
@@ -91,14 +92,22 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time, 'params_file': configured_params, 'autostart': 'True'}.items()
     )
 
-    localization_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(nav2_bringup_dir, 'launch', 'localization_launch.py')),
-        launch_arguments={
-            'map': map_file_path, 
-            'use_sim_time': use_sim_time, 
-            'params_file': configured_params, 
-            'autostart': 'True'
-        }.items()
+    # localization_launch = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(os.path.join(nav2_bringup_dir, 'launch', 'localization_launch.py')),
+    #     launch_arguments={
+    #         'map': map_file_path, 
+    #         'use_sim_time': use_sim_time, 
+    #         'params_file': configured_params, 
+    #         'autostart': 'True'
+    #     }.items()
+    # )
+
+    tf_map_to_odom = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='tf_map_to_odom',
+        arguments=['0', '0', '0', '0', '0', '0', 'camera_init', 'odom'],
+        output='screen'
     )
 
     return LaunchDescription(
@@ -108,5 +117,6 @@ def generate_launch_description():
         robot_state_publisher,
         bridge,
         nav_launch,          
-        localization_launch,
+        # localization_launch,
+        tf_map_to_odom
     ])

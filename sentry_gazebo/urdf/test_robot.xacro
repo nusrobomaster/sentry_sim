@@ -282,48 +282,44 @@
     </sensor>
   </gazebo>
 
-  <!-- LiDAR sensor -->
-  <!-- https://gazebosim.org/docs/fortress/sensors/#lidar-sensor -->
-  <!-- topic name in ign topic -l: /world/default/model/testbot/link/dummy/sensor/lidar_sensor/scan -->
-  <gazebo reference="imu_link"> <!-- imu_link has a more broad horizon-->
-    <sensor type="gpu_ray" name="lidar_sensor">
+  <gazebo reference="imu_link">
+    <sensor type="gpu_lidar" name="livox_mid360">
       <ignition_frame_id>imu_link</ignition_frame_id>
       
-      <topic>/scan</topic>
+      <topic>/lidar_points</topic>
+      
       <pose>0 0 0 0 0 0</pose>
       <visualize>true</visualize>
-      <update_rate>20</update_rate>
-      <ray>
+      <update_rate>10</update_rate>
+      <always_on>true</always_on>
+      
+      <lidar>
         <scan>
           <horizontal>
-            <samples>360</samples> <!-- on my computer, number of rays and update rate should not be too much, otherwise computer freezes-->
-            <resolution>1</resolution>
-            <min_angle>-1.5708</min_angle>
-            <max_angle>1.5708</max_angle>
+            <samples>2000</samples>
+            <resolution>1.0</resolution>
+            <min_angle>-${PI}</min_angle>
+            <max_angle>${PI}</max_angle>
           </horizontal>
           <vertical>
-            <!-- <samples>50</samples>
-            <resolution>1</resolution>
-            <min_angle>-1.5708</min_angle>
-            <max_angle>1.5708</max_angle> -->
-            <samples>1</samples>
-            <resolution>1</resolution>
-            <min_angle>0</min_angle>
-            <max_angle>0</max_angle>
+            <samples>100</samples>
+            <resolution>1.0</resolution>
+            <min_angle>-0.515</min_angle>
+            <max_angle>0.515</max_angle>
           </vertical>
         </scan>
         <range>
-          <min>0.2</min>
-          <max>10.0</max>
+          <min>0.05</min>
+          <max>70.0</max>
           <resolution>0.01</resolution>
         </range>
-      </ray>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.02</stddev>
+        </noise>
+      </lidar>
     </sensor>
   </gazebo>
-  <!-- Livox-Mid360  -->
-  <!--<xacro:include filename="$(find ros2_livox_simulation)/urdf/mid360.xacro" />
-  <xacro:mid360 name="livox_frame" parent="base_link" topic="/livox/lidar">
-    <origin xyz="$(arg xyz)" rpy="$(arg rpy)" />
-  </xacro:mid360> -->
 
 </robot>
