@@ -109,7 +109,7 @@ Use **2D Pose Estimate** to set initial pose, then **2D Goal Pose** for navigati
 ros2 launch sentry_gazebo gazebo_complete_launch.py
 
 # Terminal 2: Nav2
-ros2 launch sentry_nav mapping_nav_launch.py
+ros2 launch sentry_gazebo mapping_nav_launch.py
 
 # Terminal 3: RViz
 ros2 run rviz2 rviz2 --ros-args -p use_sim_time:=true

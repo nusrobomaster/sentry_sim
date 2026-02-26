@@ -25,6 +25,7 @@ class State(Enum):
     SurveillingState = 1
     NavigatingState = 2
     ShootingState = 3
+    AntiPushState = 4  # <--- ADDED
 
 class Status(Enum):
     InitIdleStatus = 0
@@ -68,7 +69,7 @@ class RobotNode(Node):
             PoseWithCovarianceStamped, '/pose', self.cur_pose_callback, 10)
         
         # target_dist sub
-        self.target_dist = self.create_subscription(
+        self.target_dist_sub = self.create_subscription(
             Float32, '/cv_dist', self.target_dist_callback, 10)
         
         self.in_supply_sub = self.create_subscription(
@@ -88,6 +89,12 @@ class RobotNode(Node):
         self.LOWHP = 100 # Threshold for low health
         self.MATCH_TIME = 300 # Total match time
         self.STANDBY_TIME = 0 # Wait time upon match start before moving
+
+        # --- DEFENSE ZONE COORDINATES ---
+        self.ZONE_X_MIN = 5.0
+        self.ZONE_X_MAX = 8.5
+        self.ZONE_Y_MIN = 3.0
+        self.ZONE_Y_MAX = 6.0
 
         # !!! REMINDER: Update these with your RViz "Publish Point" values !!!
         self.CENTRAL_ZONE_X = 6.32  
@@ -126,7 +133,7 @@ class RobotNode(Node):
 
         self.opponent_detected = 0
         self.status_transition = 0 
-        self.target_dist = 0
+        self.target_dist = 99.9
         
         self.current_state = State.InitIdleState
         self.current_status = Status.InitIdleStatus
@@ -139,6 +146,8 @@ class RobotNode(Node):
         self.target_pose.header.frame_id = 'map'
         self.nav_goal_msg = PoseStamped()
         self.nav_goal_msg.header.frame_id = 'map'
+
+        self.has_reached_central = False 
 
         self.navigator = BasicNavigator()
         self.navigator.lifecycleStartup() 
@@ -172,6 +181,7 @@ class RobotNode(Node):
             self.current_hp = 500
         elif self.game_progress == 0:
             self.current_mode = BehaviorMode.IdleMode
+            self.has_reached_central = False # Reset on stop
 
     def init_clean_costmaps(self):
         self.timer = Timer(self.costmap_cleanup_interval, self.navigator.clearAllCostmaps)
@@ -220,13 +230,35 @@ class RobotNode(Node):
 
     def target_dist_callback(self, msg):
         self.target_dist = msg.data
+        if self.target_dist == 0.0:
+            self.target_dist = 99.9
 
     def in_supply_callback(self, msg):
         self.in_supply = msg.data
+        if self.in_supply:
+            self.has_reached_central = False # Left zone to heal
 
     def in_central_callback(self, msg):
         self.in_central = msg.data
+        if self.in_central:
+            self.has_reached_central = True # Reached zone
 
+    def is_in_defense_zone(self):
+        x = self.cur_pose.pose.position.x
+        y = self.cur_pose.pose.position.y
+        if x == 0.0 and y == 0.0: return True # Uninitialized safety
+        return (self.ZONE_X_MIN <= x <= self.ZONE_X_MAX) and \
+               (self.ZONE_Y_MIN <= y <= self.ZONE_Y_MAX)
+
+    # --- HELPER FOR FORCE RETURNING ---
+    def set_goal_central(self):
+        self.nav_goal_msg.header.stamp = self.navigator.get_clock().now().to_msg()
+        self.nav_goal_msg.pose.position.x = self.CENTRAL_ZONE_X
+        self.nav_goal_msg.pose.position.y = self.CENTRAL_ZONE_Y
+        self.nav_goal_msg.pose.position.z = self.CENTRAL_ZONE_Z
+        self.nav_goal_msg.pose.orientation.z = self.CENTRAL_ORI_Z
+        self.nav_goal_msg.pose.orientation.w = self.CENTRAL_ZONE_W
+        self.send_nav_goal()
 
     def behavior_loop(self):
         rate = self.create_rate(10)
@@ -234,7 +266,7 @@ class RobotNode(Node):
             
             # Publish State (Debug)
             state_msg = String()
-            state_msg.data = f"State: {self.current_state.name} | HP: {self.current_hp}"
+            state_msg.data = f"State: {self.current_state.name} | HP: {self.current_hp} | InZone: {self.is_in_defense_zone()}"
             self.state_pub.publish(state_msg)
 
             # Publish System Commands
@@ -253,22 +285,47 @@ class RobotNode(Node):
                 self.current_status = Status.LowHealthStatus
             else:
                 self.current_status = Status.CombatStatus
-            
-            # INTERRUPT: ENEMY SPOTTED
-            if self.opponent_detected and self.current_status != Status.InitIdleStatus:
-                if self.current_state == State.NavigatingState:
-                    self.get_logger().warn('INTERRUPT: Enemy Spotted! ABORTING NAVIGATION.')
+                        
+            # PRIORITY 1: LOW HP (Survival)
+            if self.current_status == Status.LowHealthStatus:
+                 # If we are not already going there, go there
+                 if self.current_state != State.NavigatingState and not self.in_supply:
+                     self.get_logger().info('CRITICAL: Low HP! Retreating to Supply.')
+                     self.navigator.cancelNav()
+                     self.set_goal() # Uses Status to pick Supply
+                     self.current_state = State.NavigatingState
+
+            # PRIORITY 2: ANTI-PUSH (Zone Defense) - ADDED
+            # Only if Combat, Reached Central Before, and currently OUTSIDE zone
+            elif self.current_status == Status.CombatStatus and \
+                 self.has_reached_central and \
+                 not self.is_in_defense_zone():
+                
+                if self.current_state != State.AntiPushState:
+                    self.get_logger().warn('ZONE BREACHED! Engaging Anti-Push.')
                     self.navigator.cancelNav()
-                self.current_state = State.ShootingState
+                    self.set_goal_central() # Force move back to center
+                    self.current_state = State.AntiPushState
+
+            # INTERRUPT: ENEMY SPOTTED
+            elif self.opponent_detected and self.current_status != Status.InitIdleStatus:
+                # If we are in Anti-Push, we KEEP Anti-Push state (move + shoot)
+                if self.current_state != State.AntiPushState:
+                    if self.current_state == State.NavigatingState:
+                        self.get_logger().warn('INTERRUPT: Enemy Spotted! ABORTING NAVIGATION.')
+                        self.navigator.cancelNav()
+                    self.current_state = State.ShootingState
 
             # INTERRUPT: STATUS CHANGED
             elif self.current_state == State.NavigatingState and self.current_status != self.prev_status:
                 self.get_logger().warn('INTERRUPT: Status Changed! ABORTING NAV to Reroute.')
                 self.navigator.cancelNav()
-                self.current_state = State.SurveillingState # Drop to idle so next loop picks new goal
+                self.current_state = State.SurveillingState 
 
-            # STATE TRANSITIONS
-            if self.current_state != State.NavigatingState and self.current_state != State.ShootingState:
+            if self.current_state != State.NavigatingState and \
+               self.current_state != State.ShootingState and \
+               self.current_state != State.AntiPushState:
+                
                 # LOW HP -> GO SUPPLY
                 if self.current_status == Status.LowHealthStatus:
                     if not self.in_supply:
@@ -278,7 +335,7 @@ class RobotNode(Node):
                 
                 # COMBAT -> GO CENTRAL
                 elif self.current_status == Status.CombatStatus and self.current_mode == BehaviorMode.SeriousMode:
-                    if not self.in_central:
+                    if not self.in_central and not self.has_reached_central:
                         self.get_logger().info('Resuming Patrol -> Routing to Central')
                         self.set_goal()
                         self.current_state = State.NavigatingState
@@ -306,9 +363,11 @@ class RobotNode(Node):
                     if result == NavigationResult.SUCCEEDED:
                         self.get_logger().info("Navigation Complete.")
                         if self.current_status == Status.LowHealthStatus:
-                             self.in_supply = True # Assumption for simulation
+                             self.in_supply = True 
+                             self.has_reached_central = False
                         else:
                              self.in_central = True
+                             self.has_reached_central = True
                     
                     self.current_state = State.SurveillingState
 
@@ -317,6 +376,23 @@ class RobotNode(Node):
                 if not self.opponent_detected:
                     self.get_logger().info("Enemy lost. Resuming surveillance.")
                     self.current_state = State.SurveillingState
+
+            elif self.current_state == State.AntiPushState:
+                # Check if we recovered the zone
+                if self.is_in_defense_zone():
+                    self.get_logger().info("Zone Recovered. Resuming Defense.")
+                    self.navigator.cancelNav()
+                    # If enemy still there -> Shoot, else -> Surveil
+                    if self.opponent_detected:
+                        self.current_state = State.ShootingState
+                    else:
+                        self.current_state = State.SurveillingState
+                
+                # Retry logic if stuck
+                if self.navigator.isNavComplete():
+                    if not self.is_in_defense_zone():
+                        self.get_logger().warn("Anti-Push stuck. Retrying...")
+                        self.set_goal_central()
 
             rate.sleep()
 
@@ -357,7 +433,9 @@ class RobotNode(Node):
 
     def send_aim_cond(self):
         aim_bool = Bool()
-        aim_bool.data = (self.current_state == State.SurveillingState) or (self.current_state == State.ShootingState)
+        aim_bool.data = (self.current_state == State.SurveillingState) or \
+                        (self.current_state == State.ShootingState) or \
+                        (self.current_state == State.AntiPushState)
         self.aim_publisher_.publish(aim_bool)
 
     def send_surveil_cond(self):
@@ -367,12 +445,15 @@ class RobotNode(Node):
 
     def send_nav_cond(self):
         nav_bool = Bool()
-        nav_bool.data = (self.current_state == State.NavigatingState)
+        nav_bool.data = (self.current_state == State.NavigatingState) or \
+                        (self.current_state == State.AntiPushState)
         self.navigating_publisher_.publish(nav_bool)
         
     def send_shoot_cond(self):
         shoot_bool = Bool()
-        shoot_bool.data = (self.current_state == State.ShootingState)
+        fire = (self.current_state == State.ShootingState) or \
+               (self.current_state == State.AntiPushState and self.opponent_detected)
+        shoot_bool.data = fire
         self.shoot_publisher_.publish(shoot_bool)
 
     def get_result_callback(self, result):
