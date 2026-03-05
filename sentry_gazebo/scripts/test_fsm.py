@@ -4,7 +4,6 @@ from enum import Enum
 
 from robot_navigator import BasicNavigator, NavigationResult
 
-
 import time
 import math
 
@@ -25,7 +24,7 @@ class State(Enum):
     SurveillingState = 1
     NavigatingState = 2
     ShootingState = 3
-    AntiPushState = 4  # <--- ADDED
+    AntiPushState = 4
 
 class Status(Enum):
     InitIdleStatus = 0
@@ -85,23 +84,28 @@ class RobotNode(Node):
         self.navigating_publisher_ = self.create_publisher(Bool, 'sen/is_navigating', 10)
 
         ################################## TUNABLE CONSTANTS ###############################
-        self.GAP = 0.5 # in m
-        self.LOWHP = 100 # Threshold for low health
-        self.MATCH_TIME = 300 # Total match time
-        self.STANDBY_TIME = 0 # Wait time upon match start before moving
+        self.GAP = 0.5
+        self.LOWHP = 100
+        self.MATCH_TIME = 300
+        self.STANDBY_TIME = 0
 
-        # --- DEFENSE ZONE COORDINATES ---
+        # DEFENSE ZONE COORDINATES
         self.ZONE_X_MIN = 5.0
         self.ZONE_X_MAX = 8.5
         self.ZONE_Y_MIN = 3.0
         self.ZONE_Y_MAX = 6.0
 
-        # !!! REMINDER: Update these with your RViz "Publish Point" values !!!
-        self.CENTRAL_ZONE_X = 6.32  
-        self.CENTRAL_ZONE_Y = 4.19 
-        self.CENTRAL_ZONE_Z = 0.0 
-        self.CENTRAL_ORI_Z = -0.707
-        self.CENTRAL_ZONE_W = 0.707
+        # ROUTE TO CENTRAL (Waypoint Array)
+        # !!! REMINDER: Update these coordinates
+        # The last dictionary in the list MUST be the actual Central Zone.
+        self.CENTRAL_ROUTE = [
+            {'x': 1.50, 'y': 1.50, 'z_ori': 0.0, 'w_ori': 1.0},   # Waypoint 1 (Near Spawn)
+            {'x': 3.00, 'y': 2.50, 'z_ori': 0.0, 'w_ori': 1.0},   # Waypoint 2
+            {'x': 4.50, 'y': 3.50, 'z_ori': 0.0, 'w_ori': 1.0},   # Waypoint 3
+            {'x': 5.50, 'y': 4.00, 'z_ori': 0.0, 'w_ori': 1.0},   # Waypoint 4
+            {'x': 6.32, 'y': 4.19, 'z_ori': -0.707, 'w_ori': 0.707} # Final Destination (Central Zone)
+        ]
+        self.current_route_idx = 0  # Tracks which waypoint we are navigating to
 
         self.SUPPLY_ZONE_X = 11.16
         self.SUPPLY_ZONE_Y = 1.08
@@ -147,7 +151,7 @@ class RobotNode(Node):
         self.nav_goal_msg = PoseStamped()
         self.nav_goal_msg.header.frame_id = 'map'
 
-        self.has_reached_central = False 
+        self.has_reached_central = False
 
         self.navigator = BasicNavigator()
         self.navigator.lifecycleStartup() 
@@ -197,7 +201,7 @@ class RobotNode(Node):
         
         dist_x = dist * math.cos(yaw)
         dist_y = dist * math.sin(yaw)
-    
+        
         return dist_x, dist_y
 
     def left_trigger_callback(self, msg):
@@ -237,27 +241,31 @@ class RobotNode(Node):
         self.in_supply = msg.data
         if self.in_supply:
             self.has_reached_central = False # Left zone to heal
+            self.current_route_idx = 0  # Reset route when back at supply
 
     def in_central_callback(self, msg):
         self.in_central = msg.data
         if self.in_central:
             self.has_reached_central = True # Reached zone
+            self.current_route_idx = len(self.CENTRAL_ROUTE) - 1  # Lock to final waypoint
 
     def is_in_defense_zone(self):
         x = self.cur_pose.pose.position.x
         y = self.cur_pose.pose.position.y
-        if x == 0.0 and y == 0.0: return True # Uninitialized safety
+        if x == 0.0 and y == 0.0: return True
         return (self.ZONE_X_MIN <= x <= self.ZONE_X_MAX) and \
                (self.ZONE_Y_MIN <= y <= self.ZONE_Y_MAX)
 
-    # --- HELPER FOR FORCE RETURNING ---
+    # HELPER FOR FORCE RETURNING
     def set_goal_central(self):
+        # Helper specifically for Anti-Push to force it back to the FINAL destination
+        final_wp = self.CENTRAL_ROUTE[-1]
         self.nav_goal_msg.header.stamp = self.navigator.get_clock().now().to_msg()
-        self.nav_goal_msg.pose.position.x = self.CENTRAL_ZONE_X
-        self.nav_goal_msg.pose.position.y = self.CENTRAL_ZONE_Y
-        self.nav_goal_msg.pose.position.z = self.CENTRAL_ZONE_Z
-        self.nav_goal_msg.pose.orientation.z = self.CENTRAL_ORI_Z
-        self.nav_goal_msg.pose.orientation.w = self.CENTRAL_ZONE_W
+        self.nav_goal_msg.pose.position.x = final_wp['x']
+        self.nav_goal_msg.pose.position.y = final_wp['y']
+        self.nav_goal_msg.pose.position.z = 0.0
+        self.nav_goal_msg.pose.orientation.z = final_wp['z_ori']
+        self.nav_goal_msg.pose.orientation.w = final_wp['w_ori']
         self.send_nav_goal()
 
     def behavior_loop(self):
@@ -266,7 +274,7 @@ class RobotNode(Node):
             
             # Publish State (Debug)
             state_msg = String()
-            state_msg.data = f"State: {self.current_state.name} | HP: {self.current_hp} | InZone: {self.is_in_defense_zone()}"
+            state_msg.data = f"State: {self.current_state.name} | WP: {self.current_route_idx} | HP: {self.current_hp} | InZone: {self.is_in_defense_zone()}"
             self.state_pub.publish(state_msg)
 
             # Publish System Commands
@@ -286,17 +294,15 @@ class RobotNode(Node):
             else:
                 self.current_status = Status.CombatStatus
                         
-            # PRIORITY 1: LOW HP (Survival)
+            # PRIORITY 1: LOW HP
             if self.current_status == Status.LowHealthStatus:
-                 # If we are not already going there, go there
                  if self.current_state != State.NavigatingState and not self.in_supply:
                      self.get_logger().info('CRITICAL: Low HP! Retreating to Supply.')
                      self.navigator.cancelNav()
                      self.set_goal() # Uses Status to pick Supply
                      self.current_state = State.NavigatingState
 
-            # PRIORITY 2: ANTI-PUSH (Zone Defense) - ADDED
-            # Only if Combat, Reached Central Before, and currently OUTSIDE zone
+            # PRIORITY 2: ANTI-PUSH
             elif self.current_status == Status.CombatStatus and \
                  self.has_reached_central and \
                  not self.is_in_defense_zone():
@@ -304,12 +310,11 @@ class RobotNode(Node):
                 if self.current_state != State.AntiPushState:
                     self.get_logger().warn('ZONE BREACHED! Engaging Anti-Push.')
                     self.navigator.cancelNav()
-                    self.set_goal_central() # Force move back to center
+                    self.set_goal_central()
                     self.current_state = State.AntiPushState
 
             # INTERRUPT: ENEMY SPOTTED
             elif self.opponent_detected and self.current_status != Status.InitIdleStatus:
-                # If we are in Anti-Push, we KEEP Anti-Push state (move + shoot)
                 if self.current_state != State.AntiPushState:
                     if self.current_state == State.NavigatingState:
                         self.get_logger().warn('INTERRUPT: Enemy Spotted! ABORTING NAVIGATION.')
@@ -320,7 +325,7 @@ class RobotNode(Node):
             elif self.current_state == State.NavigatingState and self.current_status != self.prev_status:
                 self.get_logger().warn('INTERRUPT: Status Changed! ABORTING NAV to Reroute.')
                 self.navigator.cancelNav()
-                self.current_state = State.SurveillingState 
+                self.current_state = State.SurveillingState
 
             if self.current_state != State.NavigatingState and \
                self.current_state != State.ShootingState and \
@@ -336,12 +341,11 @@ class RobotNode(Node):
                 # COMBAT -> GO CENTRAL
                 elif self.current_status == Status.CombatStatus and self.current_mode == BehaviorMode.SeriousMode:
                     if not self.in_central and not self.has_reached_central:
-                        self.get_logger().info('Resuming Patrol -> Routing to Central')
+                        self.get_logger().info(f'Resuming Patrol -> Routing to WP {self.current_route_idx}')
                         self.set_goal()
                         self.current_state = State.NavigatingState
 
             # STATE EXECUTION
-
             if self.current_state == State.InitIdleState:
                 if not self.navigator.isNavComplete():
                     self.navigator.cancelNav()
@@ -361,15 +365,25 @@ class RobotNode(Node):
                 if self.navigator.isNavComplete():
                     result = self.navigator.getResult()
                     if result == NavigationResult.SUCCEEDED:
-                        self.get_logger().info("Navigation Complete.")
+                        
                         if self.current_status == Status.LowHealthStatus:
-                             self.in_supply = True 
+                             self.get_logger().info("Arrived at Supply.")
+                             self.in_supply = True
                              self.has_reached_central = False
+                             self.current_state = State.SurveillingState
                         else:
-                             self.in_central = True
-                             self.has_reached_central = True
-                    
-                    self.current_state = State.SurveillingState
+                             # Check if we have more waypoints to go
+                             if self.current_route_idx < len(self.CENTRAL_ROUTE) - 1:
+                                 self.current_route_idx += 1
+                                 self.get_logger().info(f"Waypoint Reached. Moving to WP {self.current_route_idx}")
+                                 self.set_goal()  # Send next waypoint immediately
+                             else:
+                                 self.get_logger().info("Arrived at Central Zone.")
+                                 self.in_central = True
+                                 self.has_reached_central = True
+                                 self.current_state = State.SurveillingState
+                    else:
+                        self.current_state = State.SurveillingState
 
             elif self.current_state == State.ShootingState:
                 # If enemy disappears, go back to patrolling
@@ -397,7 +411,6 @@ class RobotNode(Node):
             rate.sleep()
 
     def set_goal(self):
-
         if self.current_status == Status.LowHealthStatus:
             # Set supply zone goal
             self.nav_goal_msg.header.stamp = self.navigator.get_clock().now().to_msg()
@@ -406,15 +419,14 @@ class RobotNode(Node):
             self.nav_goal_msg.pose.position.z = self.SUPPLY_ZONE_Z
             self.nav_goal_msg.pose.orientation.z = self.SUPPLY_ORI_Z
             self.nav_goal_msg.pose.orientation.w = self.SUPPLY_ZONE_W
-            
         else:
-            # Set central zone goal
+            wp = self.CENTRAL_ROUTE[self.current_route_idx]
             self.nav_goal_msg.header.stamp = self.navigator.get_clock().now().to_msg()
-            self.nav_goal_msg.pose.position.x = self.CENTRAL_ZONE_X
-            self.nav_goal_msg.pose.position.y = self.CENTRAL_ZONE_Y
-            self.nav_goal_msg.pose.position.z = self.CENTRAL_ZONE_Z
-            self.nav_goal_msg.pose.orientation.z = self.CENTRAL_ORI_Z
-            self.nav_goal_msg.pose.orientation.w = self.CENTRAL_ZONE_W
+            self.nav_goal_msg.pose.position.x = wp['x']
+            self.nav_goal_msg.pose.position.y = wp['y']
+            self.nav_goal_msg.pose.position.z = 0.0
+            self.nav_goal_msg.pose.orientation.z = wp['z_ori']
+            self.nav_goal_msg.pose.orientation.w = wp['w_ori']
 
         if self.navigator.isNavComplete():
             self.nav_start_time = time.time()
@@ -471,7 +483,7 @@ class RobotNode(Node):
             self.get_logger().info("Navigation to pose canceled")
         elif result == NavigationResult.FAILED:
             self.is_navigating = 0
-            self.dur_nav = 0  
+            self.dur_nav = 0
 
 def main(args=None):
     rclpy.init()
@@ -486,7 +498,8 @@ def main(args=None):
     finally:
         node.destroy_node()
         node.navigator.destroy_node()
-        node.timer.cancel()
+        if node.timer:
+            node.timer.cancel()
         rclpy.shutdown()
  
 if __name__ == '__main__':
